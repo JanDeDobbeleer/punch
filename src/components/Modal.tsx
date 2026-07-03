@@ -45,6 +45,7 @@ const Modal: FC<ModalProps> = ({
 
   return (
     <div
+      className="modal-overlay"
       style={{
         position: 'fixed',
         inset: 0,
@@ -59,6 +60,7 @@ const Modal: FC<ModalProps> = ({
       onClick={onCancel}
     >
       <div
+        className="modal-sheet"
         style={{
           width: '440px',
           maxWidth: '100%',
@@ -69,6 +71,7 @@ const Modal: FC<ModalProps> = ({
         }}
         onClick={stopOverlay}
       >
+        <div className="modal-drag-handle" />
         <div style={{ fontSize: '17px', fontWeight: 600, letterSpacing: '-0.01em', marginBottom: '20px' }}>
           {modalTitle}
         </div>
@@ -228,7 +231,7 @@ const Modal: FC<ModalProps> = ({
 
               {entryForm.repeat ? (
                 <>
-                  <div style={{ display: 'flex', gap: '12px' }}>
+                  <div className="modal-date-range-row" style={{ display: 'flex', gap: '12px' }}>
                     <div style={{ flex: 1 }}>
                       <label style={labelStyle}>From</label>
                       <input type="date" style={inputStyle} value={entryForm.date} onChange={onFormDate} />
@@ -271,6 +274,7 @@ const Modal: FC<ModalProps> = ({
                     <button
                       key={preset.value}
                       type="button"
+                      className="modal-preset-btn"
                       onClick={() => onPresetHours(preset.value)}
                       style={{
                         padding: '5px 12px',
@@ -359,6 +363,7 @@ const Modal: FC<ModalProps> = ({
         </div>
 
         <div
+          className="modal-footer"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -368,17 +373,18 @@ const Modal: FC<ModalProps> = ({
         >
           {canDelete ? (
             <button
-              style={{
-                border: 'none',
-                background: 'none',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: '#dc2626',
-                padding: '8px 4px',
-              }}
-              onClick={onDelete}
-            >
+                className="modal-delete-btn"
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#dc2626',
+                  padding: '8px 4px',
+                }}
+                onClick={onDelete}
+              >
               Delete
             </button>
           ) : (
@@ -387,6 +393,7 @@ const Modal: FC<ModalProps> = ({
 
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
+              className="modal-cancel-btn"
               style={{
                 height: '38px',
                 padding: '0 16px',
@@ -402,7 +409,7 @@ const Modal: FC<ModalProps> = ({
             >
               Cancel
             </button>
-            <button style={btnPrimaryLg} onClick={onSave}>
+            <button className="modal-save-btn" style={btnPrimaryLg} onClick={onSave}>
               {saveLabel}
             </button>
           </div>

@@ -154,14 +154,6 @@ const CalendarPanel: FC<{ calendar: TrackCalendarVM; accent: string }> = ({ cale
                 </div>
               </div>
             ))}
-            <button
-              type="button"
-              className="cal-add-entry"
-              onClick={panel.onAddEntry}
-              style={{ width: '100%', display: 'block', padding: '9px 12px', borderRadius: '10px', cursor: 'pointer', border: '1px dashed #d7dadf', background: 'transparent', color: '#9ca3af', fontSize: '13px', textAlign: 'left', fontFamily: 'inherit' }}
-            >
-              + Add entry
-            </button>
           </div>
         </div>
       </>
@@ -243,14 +235,6 @@ const CalendarPanel: FC<{ calendar: TrackCalendarVM; accent: string }> = ({ cale
         </>
       )}
 
-      <button
-        type="button"
-        className="cal-add-entry"
-        onClick={panel.onAddEntry}
-        style={{ width: '100%', display: 'block', padding: '9px 12px', marginTop: '18px', borderRadius: '10px', cursor: 'pointer', border: '1px dashed #d7dadf', background: 'transparent', color: '#9ca3af', fontSize: '13px', textAlign: 'left', fontFamily: 'inherit' }}
-      >
-        + Add entry
-      </button>
     </div>
   )
 }

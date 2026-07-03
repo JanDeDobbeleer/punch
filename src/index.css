@@ -304,6 +304,12 @@ textarea {
 }
 
 /* ── Mobile layout fixes (views that don't receive isMobile prop) ── */
+
+/* Drag handle: hidden on desktop, shown via the mobile media query below */
+.modal-drag-handle {
+  display: none;
+}
+
 @media (max-width: 767px) {
   /* Calendar day cells: enforce 44px minimum touch target */
   .cal-cell {
@@ -432,5 +438,62 @@ textarea {
     white-space: nowrap !important;
     min-height: 44px !important;
     flex: 1 1 auto !important;
+  }
+
+  /* ── Modal → bottom sheet ── */
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 90dvh !important;
+    overflow-y: auto !important;
+    /* Remove top padding — drag handle provides spacing */
+    padding: 0 20px 20px !important;
+    /* Respect iPhone home indicator */
+    padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Drag handle pill at the top of the sheet */
+  .modal-drag-handle {
+    display: block !important;
+    width: 36px;
+    height: 4px;
+    background: #d1d5db;
+    border-radius: 2px;
+    margin: 10px auto 18px;
+  }
+
+  /* From / To date range: stack vertically so "To" doesn't overflow */
+  .modal-date-range-row {
+    flex-direction: column !important;
+  }
+
+  /* Hour preset chips: bigger tap targets */
+  .modal-preset-btn {
+    padding: 8px 14px !important;
+    min-height: 40px !important;
+  }
+
+  /* Footer: sticky so Cancel/Save stay visible while scrolling */
+  .modal-footer {
+    position: sticky !important;
+    bottom: 0 !important;
+    background: #fff !important;
+    padding-top: 12px !important;
+    margin-top: 16px !important;
+    /* Extend white background under safe-area */
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+
+  /* Footer buttons: 44px height */
+  .modal-cancel-btn,
+  .modal-save-btn,
+  .modal-delete-btn {
+    height: 44px !important;
   }
 }
