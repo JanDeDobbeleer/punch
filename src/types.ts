@@ -3,7 +3,7 @@
 // flowing between the state hook (useTempoState) and the presentational
 // components. Keep it in sync with both sides.
 
-import type { CSSProperties, MouseEvent, ChangeEvent } from 'react';
+import type { CSSProperties, MouseEvent, PointerEvent, ChangeEvent } from 'react';
 
 // ─── domain model ────────────────────────────────────────────────────────
 
@@ -113,6 +113,8 @@ export interface SidebarProps {
   syncColor: string;
   syncLabel: string;
   onOpenSettings: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 export interface AppHeaderProps {
@@ -134,6 +136,9 @@ export interface AppHeaderProps {
   onNewEntry: () => void;
   onNewProject: () => void;
   onNewCustomer: () => void;
+  onToggleSidebar?: () => void;
+  isMobile?: boolean;
+  sidebarOpen?: boolean;
 }
 
 export interface EntryBlockVM {
@@ -143,7 +148,7 @@ export interface EntryBlockVM {
   timeLabel: string;
   style: CSSProperties;
   onClick: () => void;
-  stop: (e: MouseEvent) => void;
+  stop: (e: PointerEvent) => void;
 }
 
 export interface WeekDayVM {
@@ -155,7 +160,7 @@ export interface WeekDayVM {
   entries: EntryBlockVM[];
   drag: CSSProperties | null;
   dragLabel: string;
-  onMouseDown: (e: MouseEvent) => void;
+  onPointerDown: (e: PointerEvent) => void;
   onHeaderClick: () => void;
 }
 
@@ -184,7 +189,7 @@ export interface DayDataVM {
   entries: EntryBlockVM[];
   drag: CSSProperties | null;
   dragLabel: string;
-  onMouseDown: (e: MouseEvent) => void;
+  onPointerDown: (e: PointerEvent) => void;
   totalH: string;
   totalDays: string;
   totalEarn: string;

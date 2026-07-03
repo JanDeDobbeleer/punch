@@ -15,9 +15,33 @@ const Sidebar: FC<SidebarProps> = ({
   syncColor,
   syncLabel,
   onOpenSettings,
+  isOpen,
+  onClose,
 }) => {
+  const handleNavTrack = () => {
+    onNavTrack();
+    onClose?.();
+  };
+
+  const handleNavProjects = () => {
+    onNavProjects();
+    onClose?.();
+  };
+
+  const handleNavCustomers = () => {
+    onNavCustomers();
+    onClose?.();
+  };
+
+  const handleOpenSettings = () => {
+    onOpenSettings();
+    onClose?.();
+  };
+
   return (
     <aside
+      id="app-sidebar"
+      className={`sidebar${isOpen ? ' sidebar--open' : ''}`}
       style={{
         width: '236px',
         flexShrink: 0,
@@ -34,14 +58,14 @@ const Sidebar: FC<SidebarProps> = ({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-        <button type="button" style={navTrackStyle} onClick={onNavTrack}>
+        <button type="button" style={navTrackStyle} onClick={handleNavTrack}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <circle cx="12" cy="12" r="8.5"></circle>
             <path d="M12 7.5V12l3 1.8"></path>
           </svg>
           <span>Track</span>
         </button>
-        <button type="button" style={navProjectsStyle} onClick={onNavProjects}>
+        <button type="button" style={navProjectsStyle} onClick={handleNavProjects}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <rect x="4" y="4" width="7" height="7" rx="1.5"></rect>
             <rect x="13" y="4" width="7" height="7" rx="1.5"></rect>
@@ -50,7 +74,7 @@ const Sidebar: FC<SidebarProps> = ({
           </svg>
           <span>Projects</span>
         </button>
-        <button type="button" style={navCustomersStyle} onClick={onNavCustomers}>
+        <button type="button" style={navCustomersStyle} onClick={handleNavCustomers}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <circle cx="9" cy="9" r="3.2"></circle>
             <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"></path>
@@ -122,9 +146,9 @@ const Sidebar: FC<SidebarProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
-            style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '3px', display: 'flex', alignItems: 'center' }}
+            style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '3px', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             title="Settings"
-            onClick={onOpenSettings}
+            onClick={handleOpenSettings}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.8">
               <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />

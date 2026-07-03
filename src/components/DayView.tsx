@@ -3,7 +3,7 @@ import type { DayViewProps } from '../types'
 
 const DayView: FC<DayViewProps> = ({ dayData, gutterStyle, hourRows, accent }) => {
   return (
-    <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+    <div className="day-view-shell" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
       <div style={{ flex: 1, overflow: 'auto', background: '#ffffff', borderRight: '1px solid #e9ebef' }}>
         <div style={{ display: 'flex' }}>
           <div style={gutterStyle}>
@@ -13,14 +13,14 @@ const DayView: FC<DayViewProps> = ({ dayData, gutterStyle, hourRows, accent }) =
               </div>
             ))}
           </div>
-          <div style={dayData.colStyle} onMouseDown={dayData.onMouseDown}>
+          <div style={dayData.colStyle} onPointerDown={dayData.onPointerDown}>
             {dayData.entries.map((entry) => (
               <div
                 key={entry.id}
                 className="entry-block"
                 style={entry.style}
                 onClick={entry.onClick}
-                onMouseDown={entry.stop}
+                onPointerDown={entry.stop}
               >
                 <div style={{ fontWeight: 600, fontSize: '13px', lineHeight: 1.25 }}>{entry.projectName}</div>
                 <div style={{ fontSize: '11px', color: '#6b7280', fontFamily: "'Geist Mono',monospace" }}>
@@ -41,6 +41,7 @@ const DayView: FC<DayViewProps> = ({ dayData, gutterStyle, hourRows, accent }) =
       </div>
 
       <aside
+        className="day-view-aside"
         style={{
           width: '312px',
           flexShrink: 0,

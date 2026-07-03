@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type MouseEvent, type PointerEvent } from 'react';
 
 import { addDays, addMonths, fmtFullDate, fmtMonthYear, fmtShortDate, fmtShortDateYear, iso, parseISO, startOfWeek } from '../lib/dates';
 import { fmtEUR, fmtH, fmtMin, hexToRgba, parseHM, uid } from '../lib/format';
@@ -123,6 +123,7 @@ function navStyle(active: boolean, accent: string): CSSProperties {
     alignItems: 'center',
     gap: '11px',
     width: '100%',
+    minHeight: '44px',
     padding: '9px 12px',
     borderRadius: '9px',
     border: 'none',
@@ -137,7 +138,8 @@ function navStyle(active: boolean, accent: string): CSSProperties {
 
 function tabStyle(active: boolean): CSSProperties {
   return {
-    padding: '6px 15px',
+    padding: '9px 15px',
+    minHeight: '44px',
     borderRadius: '7px',
     border: 'none',
     cursor: 'pointer',
@@ -879,20 +881,21 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     setState((current) => ({ ...current, refISO }));
   }, []);
 
-  const onColMouseDown = useCallback((dayISO: string, event: MouseEvent<Element>) => {
-    if (event.button !== 0) {
+  const onColPointerDown = useCallback((dayISO: string, event: PointerEvent<Element>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
     }
 
     event.preventDefault();
     rectRef.current = event.currentTarget.getBoundingClientRect();
+    event.currentTarget.setPointerCapture(event.pointerId);
     const minutes = yToMin(event.clientY, rectRef.current);
     draggingRef.current = true;
     setState((current) => ({ ...current, drag: { iso: dayISO, a: minutes, b: minutes } }));
   }, []);
 
   useEffect(() => {
-    const handleMove = (event: globalThis.MouseEvent): void => {
+    const handleMove = (event: globalThis.PointerEvent): void => {
       if (!draggingRef.current) {
         return;
       }
@@ -903,7 +906,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       ));
     };
 
-    const handleUp = (): void => {
+    const handleUp = (_event?: globalThis.PointerEvent): void => {
       if (!draggingRef.current) {
         return;
       }
@@ -929,11 +932,13 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       openEntry({ projectId, date: drag.iso, start, end, comment: '' }, true);
     };
 
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', handleUp);
     return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('pointercancel', handleUp);
     };
   }, [openEntry]);
 
@@ -1199,7 +1204,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         setRefISO(iso(next));
       },
       btnPrimary: {
-        height: '34px',
+        height: '44px',
         padding: '0 15px',
         border: 'none',
         background: ctx.acc,
@@ -1290,6 +1295,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       height: `${gridHeight}px`,
       borderLeft: '1px solid #f0f1f4',
       cursor: 'crosshair',
+      touchAction: 'none',
       backgroundColor: dayISO === ctx.todayISO ? '#fafbff' : 'transparent',
       backgroundImage: `repeating-linear-gradient(to bottom, #eef0f3 0, #eef0f3 1px, transparent 1px, transparent ${ROW}px)`,
       backgroundPosition: `0 ${PAD}px`,
@@ -1324,13 +1330,13 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         entries: buildDayEntries(ctx.S.entries, ctx.projById, ctx.custById, dayISO, openEntry as (entry: Entry, isNew: boolean) => void),
         drag: overlay ? overlay.style : null,
         dragLabel: overlay ? overlay.label : '',
-        onMouseDown: (event) => onColMouseDown(dayISO, event),
+        onPointerDown: (event) => onColPointerDown(dayISO, event),
         onHeaderClick: () => setState((current) => ({ ...current, view: 'day', refISO: dayISO })),
       });
     }
 
     return { weekDays, gutterStyle, hourRows };
-  }, [ctx, onColMouseDown, openEntry]);
+  }, [ctx, onColPointerDown, openEntry]);
 
   const dayProps = useMemo<DayViewProps | null>(() => {
     if (!(ctx.isTrack && ctx.isDay)) {
@@ -1370,13 +1376,14 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
           position: 'relative',
           height: `${gridHeight}px`,
           cursor: 'crosshair',
+          touchAction: 'none',
           backgroundImage: `repeating-linear-gradient(to bottom, #eef0f3 0, #eef0f3 1px, transparent 1px, transparent ${ROW}px)`,
           backgroundPosition: `0 ${PAD}px`,
         },
         entries: buildDayEntries(ctx.S.entries, ctx.projById, ctx.custById, dayISO, openEntry as (entry: Entry, isNew: boolean) => void),
         drag: overlay ? overlay.style : null,
         dragLabel: overlay ? overlay.label : '',
-        onMouseDown: (event) => onColMouseDown(dayISO, event),
+        onPointerDown: (event) => onColPointerDown(dayISO, event),
         totalH: fmtH(dayMinutes),
         totalDays: (dayMinutes / 60 / ctx.hpd).toFixed(1),
         totalEarn: fmtEUR(dayEarn),
@@ -1387,7 +1394,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       hourRows,
       accent: ctx.acc,
     };
-  }, [ctx, onColMouseDown, openEntry]);
+  }, [ctx, onColPointerDown, openEntry]);
 
   const monthProps = useMemo<MonthViewProps | null>(() => {
     if (!(ctx.isTrack && ctx.isMonth)) {
@@ -1532,9 +1539,10 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     const inputStyle: CSSProperties = {
       width: '100%',
       padding: '10px 12px',
+      minHeight: '44px',
       border: '1px solid #d7dadf',
       borderRadius: '9px',
-      fontSize: '14px',
+      fontSize: '16px',
       color: '#1a1c20',
       background: '#fff',
       outline: 'none',
@@ -1703,9 +1711,10 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     const inputStyle: CSSProperties = {
       width: '100%',
       padding: '10px 12px',
+      minHeight: '44px',
       border: '1px solid #d7dadf',
       borderRadius: '9px',
-      fontSize: '14px',
+      fontSize: '16px',
       color: '#1a1c20',
       background: '#fff',
       outline: 'none',
@@ -1774,4 +1783,3 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     modalProps,
   };
 }
-

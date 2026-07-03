@@ -3,9 +3,9 @@ import type { MonthViewProps } from '../types'
 
 const MonthView: FC<MonthViewProps> = ({ monthWeeks, monthDowLabels }) => {
   return (
-    <div style={{ flex: 1, overflow: 'auto', padding: '22px' }}>
-      <div style={{ background: '#fff', border: '1px solid #e9ebef', borderRadius: '14px', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid #eef0f3' }}>
+    <div className="month-grid-wrap" style={{ flex: 1, overflow: 'auto', padding: '22px' }}>
+      <div className="month-card" style={{ background: '#fff', border: '1px solid #e9ebef', borderRadius: '14px', overflow: 'hidden' }}>
+        <div className="month-dow-row" style={{ display: 'flex', borderBottom: '1px solid #eef0f3' }}>
           {monthDowLabels.map((label, index) => (
             <div
               key={`${label}-${index}`}
@@ -25,7 +25,7 @@ const MonthView: FC<MonthViewProps> = ({ monthWeeks, monthDowLabels }) => {
           ))}
         </div>
         {monthWeeks.map((week, weekIndex) => (
-          <div key={weekIndex} style={{ display: 'flex', borderBottom: '1px solid #f4f5f7' }}>
+          <div key={weekIndex} className="month-week-row" style={{ display: 'flex', borderBottom: '1px solid #f4f5f7' }}>
             {week.days.map((cell, dayIndex) => (
               <div key={`${weekIndex}-${dayIndex}`} className="month-cell" style={cell.style} onClick={cell.onClick}>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

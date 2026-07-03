@@ -1,5 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
 
+:root {
+  --touch-min: 44px;
+  --sidebar-w: 236px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --bp-mobile: 767px;
+  --bp-tablet: 1023px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -20,11 +31,27 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* App shell: use dvh so mobile browser chrome (collapsing URL bar) doesn't
+   clip content the way a static 100vh would. Falls back to vh first for
+   browsers without dvh support. */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+
 button,
 input,
 select,
 textarea {
   font: inherit;
+}
+
+/* Touch feedback: hover-only affordances (below) don't fire on touch, so
+   provide an :active equivalent for tappable rows/cells/blocks. */
+.entry-block:active,
+.day-list-row:active,
+.month-cell:active {
+  background-color: #eef0f3;
 }
 
 ::selection {
@@ -64,4 +91,108 @@ textarea {
 
 .month-cell:hover {
   background: #f8f9fb;
+}
+
+/* ── Responsive scaffolding ─────────────────────────────────────────────
+   Breakpoints: mobile < 768px, tablet 768–1023px, desktop >= 1024px.
+   Inline styles (used throughout src/components and useTempoState.ts)
+   cannot express @media rules, so structural/breakpoint-driven layout
+   (sidebar drawer, FAB, calendar reflow) is added here as classes that
+   components opt into via className, alongside the useIsMobile() hook
+   (src/hooks/useMediaQuery.ts) for JS-side conditional rendering. */
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    /* Prevent iOS Safari auto-zoom on focus, which requires >=16px. */
+    font-size: 16px !important;
+  }
+}
+
+.fab {
+  display: none;
+  color: #ffffff;
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 44;
+}
+
+@media (max-width: 767px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 45;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.15);
+  }
+
+  .sidebar.sidebar--open {
+    transform: translateX(0);
+  }
+
+  .fab {
+    display: flex;
+    position: fixed;
+    right: 16px;
+    bottom: calc(16px + var(--safe-bottom));
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    z-index: 40;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* Calendar mobile adaptations */
+@media (max-width: 767px) {
+  .week-grid {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .week-col,
+  .week-day-header {
+    scroll-snap-align: start;
+  }
+
+  .week-col,
+  .week-day-header {
+    flex: 0 0 78vw !important;
+    min-width: 220px;
+  }
+
+  .day-view-shell {
+    flex-direction: column !important;
+    overflow: auto !important;
+  }
+
+  .day-view-aside {
+    width: 100% !important;
+  }
+
+  .month-grid-wrap {
+    padding: 8px !important;
+  }
+
+  .month-card {
+    overflow-x: auto !important;
+  }
+
+  .month-week-row,
+  .month-dow-row {
+    min-width: 560px;
+  }
 }

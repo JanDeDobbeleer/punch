@@ -3,7 +3,7 @@ import type { WeekViewProps } from '../types'
 
 const WeekView: FC<WeekViewProps> = ({ weekDays, gutterStyle, hourRows }) => {
   return (
-    <div style={{ flex: 1, overflow: 'auto', background: '#ffffff' }}>
+    <div className="week-grid" style={{ flex: 1, overflow: 'auto', background: '#ffffff' }}>
       <div
         style={{
           position: 'sticky',
@@ -18,6 +18,7 @@ const WeekView: FC<WeekViewProps> = ({ weekDays, gutterStyle, hourRows }) => {
         {weekDays.map((day) => (
           <div
             key={day.iso}
+            className="week-day-header"
             style={{
               flex: 1,
               textAlign: 'center',
@@ -52,14 +53,14 @@ const WeekView: FC<WeekViewProps> = ({ weekDays, gutterStyle, hourRows }) => {
           ))}
         </div>
         {weekDays.map((day) => (
-          <div key={day.iso} style={day.colStyle} onMouseDown={day.onMouseDown}>
+          <div key={day.iso} className="week-col" style={day.colStyle} onPointerDown={day.onPointerDown}>
             {day.entries.map((entry) => (
               <div
                 key={entry.id}
                 className="entry-block"
                 style={entry.style}
                 onClick={entry.onClick}
-                onMouseDown={entry.stop}
+                onPointerDown={entry.stop}
               >
                 <div
                   style={{

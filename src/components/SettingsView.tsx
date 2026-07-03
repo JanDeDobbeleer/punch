@@ -20,9 +20,10 @@ const labelStyle: CSSProperties = {
 const inputStyle: CSSProperties = {
   width: '100%',
   padding: '10px 12px',
+  minHeight: '44px',
   border: '1px solid #d7dadf',
   borderRadius: '9px',
-  fontSize: '14px',
+  fontSize: '16px',
   color: '#1a1c20',
   background: '#fff',
   outline: 'none',

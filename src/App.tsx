@@ -1,8 +1,7 @@
-import type { FC } from 'react';
-
+import { type FC, useEffect, useState } from 'react';
 import { useTempoState } from './hooks/useTempoState';
+import { useIsMobile } from './hooks/useMediaQuery';
 import type { TempoSettings } from './types';
-
 import Sidebar from './components/Sidebar';
 import AppHeader from './components/AppHeader';
 import WeekView from './components/WeekView';
@@ -14,6 +13,7 @@ import CustomerDetailView from './components/CustomerDetailView';
 import ProjectDetailView from './components/ProjectDetailView';
 import SettingsView from './components/SettingsView';
 import Modal from './components/Modal';
+import Fab from './components/Fab';
 
 // Mirrors the DC root's editable-settings defaults (see Tempo.dc.html's
 // data-props block: accentColor / hoursPerDay / showWeekend).
@@ -24,6 +24,8 @@ const SETTINGS: TempoSettings = {
 };
 
 const App: FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = useIsMobile();
   const {
     showWeek,
     showDay,
@@ -47,12 +49,34 @@ const App: FC = () => {
     modalProps,
   } = useTempoState(SETTINGS);
 
+  useEffect(() => {
+    if (!isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [isMobile]);
+
+  const fabConfig = !modalOpen
+    ? headerProps.isTrack
+      ? { label: 'Add hours', onClick: headerProps.onNewEntry }
+      : showProjects
+        ? { label: 'New project', onClick: headerProps.onNewProject }
+        : showCustomers
+          ? { label: 'New customer', onClick: headerProps.onNewCustomer }
+          : null
+    : null;
+
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden' }}>
-      <Sidebar {...sidebarProps} />
+    <div className="app-shell" style={{ display: 'flex', width: '100%', overflow: 'hidden' }}>
+      <Sidebar {...sidebarProps} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {isMobile && sidebarOpen && <div className="drawer-backdrop" onClick={() => setSidebarOpen(false)} />}
 
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: '#f5f6f8' }}>
-        <AppHeader {...headerProps} />
+        <AppHeader
+          {...headerProps}
+          isMobile={isMobile}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((open) => !open)}
+        />
 
         {showWeek && weekProps && <WeekView {...weekProps} />}
         {showDay && dayProps && <DayView {...dayProps} />}
@@ -63,6 +87,8 @@ const App: FC = () => {
         {showProjectDetail && projectDetailProps && <ProjectDetailView {...projectDetailProps} />}
         {showSettings && settingsProps && <SettingsView {...settingsProps} />}
       </main>
+
+      {isMobile && fabConfig && <Fab label={fabConfig.label} onClick={fabConfig.onClick} />}
 
       {modalOpen && modalProps && <Modal {...modalProps} />}
     </div>
