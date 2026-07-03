@@ -172,6 +172,33 @@ const CalendarPanel: FC<{ calendar: TrackCalendarVM; accent: string }> = ({ cale
 
   return (
     <div className="cal-panel-body" style={{ flex: 1, padding: '20px 22px 24px' }}>
+      {panel.filterLabel && (
+        <button
+          type="button"
+          onClick={panel.onClearFilter}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            marginBottom: '14px',
+            padding: '5px 10px 5px 8px',
+            border: `1px solid ${accent}44`,
+            background: `${accent}10`,
+            borderRadius: '20px',
+            cursor: 'pointer',
+            fontSize: '11.5px',
+            fontWeight: 500,
+            color: accent,
+            fontFamily: 'inherit',
+            maxWidth: '100%',
+          }}
+          title="Clear filter"
+        >
+          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: accent, flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{panel.filterLabel}</span>
+          <span style={{ flexShrink: 0, opacity: 0.7, marginLeft: '2px' }}>✕</span>
+        </button>
+      )}
       {panel.topProjects.length === 0 ? (
         <div style={{ padding: '20px 0 10px', textAlign: 'center', color: '#9ca3af', fontSize: '12.5px' }}>
           Nothing logged this month yet.
@@ -180,20 +207,38 @@ const CalendarPanel: FC<{ calendar: TrackCalendarVM; accent: string }> = ({ cale
         <>
           <div style={sectionLabelStyle}>Entries</div>
           {panel.topProjects.map((project) => (
-            <div key={project.key} style={{ marginBottom: '12px' }}>
+            <button
+              key={project.key}
+              type="button"
+              className="cal-glance-row"
+              onClick={project.onFilter}
+              style={{
+                width: '100%',
+                display: 'block',
+                textAlign: 'left',
+                border: project.isFiltered ? `1px solid ${accent}44` : '1px solid transparent',
+                background: project.isFiltered ? `${accent}08` : 'transparent',
+                borderRadius: '8px',
+                padding: '7px 8px',
+                marginBottom: '6px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px', gap: '8px' }}>
-                <div style={{ minWidth: 0 }}>
-                  <span style={{ fontSize: '12.5px', fontWeight: 600 }}>{project.name}</span>
-                  <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '5px' }}>{project.subLabel}</span>
+                <div style={{ minWidth: 0, display: 'flex', alignItems: 'baseline', gap: '5px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: project.dotColor, flexShrink: 0, display: 'inline-block', verticalAlign: 'middle', marginBottom: '1px' }} />
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</span>
+                  <span style={{ fontSize: '11px', color: '#9ca3af', flexShrink: 0 }}>{project.subLabel}</span>
                 </div>
                 <span style={{ fontSize: '12px', fontFamily: "'Geist Mono',monospace", color: '#6b7280', flexShrink: 0 }}>
                   {project.hoursLabel}
                 </span>
               </div>
-              <div style={{ height: '6px', borderRadius: '4px', background: '#eef0f3', overflow: 'hidden' }}>
+              <div style={{ height: '4px', borderRadius: '4px', background: '#eef0f3', overflow: 'hidden' }}>
                 <div style={{ height: '100%', borderRadius: '4px', width: `${Math.max(4, (project.barPct / topMinutesPct) * 100)}%`, background: project.dotColor }} />
               </div>
-            </div>
+            </button>
           ))}
         </>
       )}

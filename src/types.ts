@@ -246,12 +246,16 @@ export interface TrackMonthGlanceProjectVM {
   hoursLabel: string;
   earnLabel: string;
   barPct: number;            // 0-100, relative to the busiest project this month
+  isFiltered: boolean;       // true when this row is the active filter
+  onFilter: () => void;      // toggle this row as the active filter
 }
 
 // Side panel, month-at-a-glance state — the default when no day is selected.
 export interface TrackMonthGlanceVM {
   mode: 'glance';
   topProjects: TrackMonthGlanceProjectVM[];
+  filterLabel: string | null;  // name of the active filter, null when unfiltered
+  onClearFilter: () => void;
   onAddEntry: () => void;
 }
 

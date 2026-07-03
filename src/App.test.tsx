@@ -134,7 +134,7 @@ function makeViewModel(overrides: Partial<TempoViewModel> = {}): TempoViewModel 
         dowLabels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         weeks: [],
         summary: { hoursLabel: '0h', daysLabel: '0', earnLabel: '€0', entryCountLabel: '0' },
-        panel: { mode: 'glance', topProjects: [], onAddEntry: () => {} },
+        panel: { mode: 'glance', topProjects: [], filterLabel: null, onClearFilter: () => {}, onAddEntry: () => {} },
         onPrevMonth: () => {},
         onNextMonth: () => {},
         onToday: () => {},

@@ -117,6 +117,7 @@ type RenderCtx = {
   navSection: 'track' | 'projects' | 'services' | 'customers' | 'settings' | 'export' | 'earnings';
   calendarAnchor: Date;
   selectedTrackDayISO: string | null;
+  calendarFilterKey: string | null;
 };
 
 function getHoursPerDay(settings: TempoSettings): number {
@@ -294,6 +295,9 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
   // month-at-a-glance state; selecting a day (or clicking it again) toggles
   // between the day-detail and glance states.
   const [selectedTrackDayISO, setSelectedTrackDayISO] = useState<string | null>(null);
+  // The active filter key for the Track calendar (e.g. "project:xxx"). When set,
+  // the summary stats and cell data show only entries matching this key.
+  const [calendarFilterKey, setCalendarFilterKey] = useState<string | null>(null);
 
   useEffect(() => {
     stateRef.current = state;
@@ -1113,6 +1117,10 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     setCalendarAnchorISO(null);
     setSelectedTrackDayISO(null);
   }, []);
+  const onSetCalendarFilter = useCallback((key: string) => {
+    setCalendarFilterKey((prev) => (prev === key ? null : key));
+  }, []);
+  const onClearCalendarFilter = useCallback(() => setCalendarFilterKey(null), []);
   const onSelectTrackDay = useCallback((dayISO: string) => {
     setSelectedTrackDayISO((current) => (current === dayISO ? null : dayISO));
   }, []);
@@ -1247,6 +1255,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     navSection,
     calendarAnchor: calendarAnchorISO ? parseISO(calendarAnchorISO) : ref,
     selectedTrackDayISO,
+    calendarFilterKey,
   };
 
   const sidebarProps = useMemo<SidebarProps>(() => {
@@ -1427,6 +1436,17 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     const monthYear = monthRef.getFullYear();
     const gridStart = startOfWeek(new Date(monthYear, monthIndex, 1, 12));
 
+    // Returns the grouping key for an entry — used both for the filter and the pips.
+    const entryKey = (entry: Entry) =>
+      entry.kind === 'project'
+        ? `project:${entry.projectId}`
+        : entry.kind === 'service'
+          ? `service:${entry.serviceId}:${entry.customerId}`
+          : `customer:${entry.customerId}`;
+
+    const filterKey = ctx.calendarFilterKey;
+    const matchesFilter = (entry: Entry) => !filterKey || entryKey(entry) === filterKey;
+
     const entriesByDate = new Map<string, Entry[]>();
     for (const entry of ctx.S.entries) {
       const list = entriesByDate.get(entry.date);
@@ -1441,8 +1461,10 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       const date = parseISO(entry.date);
       return date.getFullYear() === monthYear && date.getMonth() === monthIndex;
     });
-    const monthMinutes = monthEntries.reduce((sum, entry) => sum + entry.minutes, 0);
-    const monthEarn = monthEntries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
+    // When a filter is active, summary stats only count matching entries.
+    const summaryEntries = filterKey ? monthEntries.filter(matchesFilter) : monthEntries;
+    const monthMinutes = summaryEntries.reduce((sum, entry) => sum + entry.minutes, 0);
+    const monthEarn = summaryEntries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
     const shadeCap = ctx.hpd > 0 ? ctx.hpd * 1.25 : 1;
 
     // Month grid: 6 fixed rows so the layout never reflows month to month.
@@ -1455,7 +1477,9 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         const cellISO = iso(date);
         const isCurrentMonth = date.getMonth() === monthIndex;
         const isToday = cellISO === ctx.todayISO;
-        const cellEntries = entriesByDate.get(cellISO) ?? [];
+        const allCellEntries = entriesByDate.get(cellISO) ?? [];
+        // When a filter is active, cell data only reflects matching entries.
+        const cellEntries = filterKey ? allCellEntries.filter(matchesFilter) : allCellEntries;
         const cellMinutes = cellEntries.reduce((sum, entry) => sum + entry.minutes, 0);
         const cellEarn = cellEntries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
         weekMinutes += cellMinutes;
@@ -1463,11 +1487,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         const pipColors: string[] = [];
         const seenPipKeys = new Set<string>();
         for (const entry of cellEntries) {
-          const pipKey = entry.kind === 'project'
-            ? `project:${entry.projectId}`
-            : entry.kind === 'service'
-              ? `service:${entry.serviceId}:${entry.customerId}`
-              : `customer:${entry.customerId}`;
+          const pipKey = entryKey(entry);
           if (seenPipKeys.has(pipKey)) {
             continue;
           }
@@ -1554,11 +1574,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       };
       const projectSeeds = new Map<string, ProjectSeed>();
       for (const entry of monthEntries) {
-        const key = entry.kind === 'project'
-          ? `project:${entry.projectId}`
-          : entry.kind === 'service'
-            ? `service:${entry.serviceId}:${entry.customerId}`
-            : `customer:${entry.customerId}`;
+        const key = entryKey(entry);
         const customerName = ctx.custById[entry.customerId ?? '']?.name || '—';
         const seed = projectSeeds.get(key) ?? {
           key,
@@ -1590,11 +1606,19 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         hoursLabel: seed.minutes > ctx.hpd * 60 ? fmtDays(seed.minutes, ctx.hpd) : fmtH(seed.minutes),
         earnLabel: seed.earn > 0 ? fmtEUR(seed.earn) : '',
         barPct: Math.round((seed.minutes / topMinutes) * 100),
+        isFiltered: filterKey === seed.key,
+        onFilter: () => onSetCalendarFilter(seed.key),
       }));
+
+      const filterLabel = filterKey
+        ? (rankedProjects.find((p) => p.key === filterKey)?.name ?? null)
+        : null;
 
       panel = {
         mode: 'glance',
         topProjects,
+        filterLabel,
+        onClearFilter: onClearCalendarFilter,
         onAddEntry: () => openNewEntryForDate(
           monthIndex === new Date().getMonth() && monthYear === new Date().getFullYear() ? ctx.todayISO : iso(new Date(monthYear, monthIndex, 1)),
         ),
@@ -1610,7 +1634,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
           hoursLabel: fmtH(monthMinutes),
           daysLabel: (monthMinutes / 60 / ctx.hpd).toFixed(1),
           earnLabel: fmtEUR(monthEarn),
-          entryCountLabel: `${monthEntries.length}`,
+          entryCountLabel: `${summaryEntries.length}`,
         },
         panel,
         onPrevMonth: onCalendarPrevMonth,
@@ -1619,7 +1643,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       },
       accent: ctx.acc,
     };
-  }, [ctx, openEntry, openNewEntryForDate, onSelectTrackDay, onCalendarPrevMonth, onCalendarNextMonth, onCalendarToday]);
+  }, [ctx, openEntry, openNewEntryForDate, onSelectTrackDay, onCalendarPrevMonth, onCalendarNextMonth, onCalendarToday, onSetCalendarFilter, onClearCalendarFilter]);
 
   const projectsProps = useMemo<ProjectsViewProps | null>(() => {
     if (!ctx.isProjects) {

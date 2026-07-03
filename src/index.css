@@ -148,6 +148,11 @@ textarea {
   background: #ffffff !important;
 }
 
+.cal-glance-row:hover {
+  background: #f5f6f8 !important;
+  border-color: #e2e4e8 !important;
+}
+
 /* ── Responsive scaffolding ─────────────────────────────────────────────
    Breakpoints: mobile < 768px, tablet 768–1023px, desktop >= 1024px.
    Inline styles (used throughout src/components and useTempoState.ts)
