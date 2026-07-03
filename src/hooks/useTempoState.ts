@@ -978,6 +978,14 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       return;
     }
 
+    // Touch drag-to-create is disabled: on mobile, hours are added via the
+    // floating action button only. Ignoring touch here also keeps the
+    // browser's native touch handling (e.g. swiping between days) working,
+    // since we don't preventDefault()/capture the pointer.
+    if (event.pointerType === 'touch') {
+      return;
+    }
+
     event.preventDefault();
     rectRef.current = event.currentTarget.getBoundingClientRect();
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -1374,7 +1382,9 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       height: `${gridHeight}px`,
       borderLeft: '1px solid #f0f1f4',
       cursor: 'crosshair',
-      touchAction: 'none',
+      // Touch input no longer drags to create entries (see onColPointerDown),
+      // so allow native touch panning/swiping instead of blocking it.
+      touchAction: 'pan-y',
       backgroundColor: dayISO === ctx.todayISO ? '#fafbff' : 'transparent',
       backgroundImage: `repeating-linear-gradient(to bottom, #eef0f3 0, #eef0f3 1px, transparent 1px, transparent ${ROW}px)`,
       backgroundPosition: `0 ${PAD}px`,
@@ -1455,7 +1465,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
           position: 'relative',
           height: `${gridHeight}px`,
           cursor: 'crosshair',
-          touchAction: 'none',
+          touchAction: 'pan-y',
           backgroundImage: `repeating-linear-gradient(to bottom, #eef0f3 0, #eef0f3 1px, transparent 1px, transparent ${ROW}px)`,
           backgroundPosition: `0 ${PAD}px`,
         },
