@@ -21,13 +21,13 @@ describe('Fab', () => {
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
-  test('applies the provided background color and defaults to accent blue', () => {
+  test('applies the provided background color and defaults to accent teal', () => {
     const { rerender } = render(<Fab label="Add hours" onClick={vi.fn()} background="#111111" />)
 
     expect(screen.getByRole('button', { name: 'Add hours' })).toHaveStyle({ background: '#111111' })
 
     rerender(<Fab label="Add hours" onClick={vi.fn()} />)
 
-    expect(screen.getByRole('button', { name: 'Add hours' })).toHaveStyle({ background: '#2563eb' })
+    expect(screen.getByRole('button', { name: 'Add hours' })).toHaveStyle({ background: '#1e5667' })
   })
 })

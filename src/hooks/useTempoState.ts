@@ -49,7 +49,7 @@ import type {
   TrackViewProps,
 } from '../types';
 
-const PALETTE = ['#2563eb', '#0d9488', '#7c3aed', '#d97706', '#db2777', '#65a30d', '#0891b2', '#dc2626'];
+const PALETTE = ['#1e5667', '#0d9488', '#7c3aed', '#d97706', '#db2777', '#65a30d', '#0891b2', '#dc2626'];
 
 function colorForProject(project: Project | undefined, custById: Record<string, Customer>): string {
   if (!project) {
@@ -202,7 +202,7 @@ function makeProjectEntry(
 
 function createDemoSeed(): PersistedData {
   const customers: Customer[] = [
-    { id: 'c1', name: 'Northwind Studio', color: '#2563eb' },
+    { id: 'c1', name: 'Northwind Studio', color: '#1e5667' },
     { id: 'c2', name: 'Meridian Health', color: '#7c3aed' },
     { id: 'c3', name: 'Atlas Logistics', color: '#db2777' },
   ];
@@ -1397,7 +1397,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
 
   const ctx: RenderCtx = {
     S: state,
-    acc: settings.accentColor || '#2563eb',
+    acc: (settings.accentColor === '#2563eb' ? undefined : settings.accentColor) || '#1e5667',
     hpd,
     showWeekend: settings.showWeekend,
     ref,
@@ -1442,7 +1442,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         width: '27px',
         height: '27px',
         borderRadius: '8px',
-        background: ctx.acc,
+        background: `linear-gradient(45deg, ${ctx.acc}, color-mix(in srgb, ${ctx.acc} 68%, #ffffff))`,
         color: '#fff',
         display: 'flex',
         alignItems: 'center',
@@ -1553,9 +1553,9 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         height: '44px',
         padding: '0 15px',
         border: 'none',
-        background: ctx.acc,
+        background: `linear-gradient(45deg, ${ctx.acc}, color-mix(in srgb, ${ctx.acc} 68%, #ffffff))`,
         color: '#fff',
-        borderRadius: '9px',
+        borderRadius: '6px',
         cursor: 'pointer',
         fontSize: '13.5px',
         fontWeight: 600,
@@ -1997,9 +1997,9 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         height: '38px',
         padding: '0 20px',
         border: 'none',
-        background: ctx.acc,
+        background: `linear-gradient(45deg, ${ctx.acc}, color-mix(in srgb, ${ctx.acc} 68%, #ffffff))`,
         color: '#fff',
-        borderRadius: '9px',
+        borderRadius: '6px',
         cursor: 'pointer',
         fontSize: '13.5px',
         fontWeight: 600,
@@ -2165,9 +2165,9 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         height: '38px',
         padding: '0 20px',
         border: 'none',
-        background: ctx.acc,
+        background: `linear-gradient(45deg, ${ctx.acc}, color-mix(in srgb, ${ctx.acc} 68%, #ffffff))`,
         color: '#fff',
-        borderRadius: '9px',
+        borderRadius: '6px',
         cursor: 'pointer',
         fontSize: '13.5px',
         fontWeight: 600,
@@ -2254,9 +2254,9 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         height: '38px',
         padding: '0 20px',
         border: 'none',
-        background: ctx.acc,
+        background: `linear-gradient(45deg, ${ctx.acc}, color-mix(in srgb, ${ctx.acc} 68%, #ffffff))`,
         color: '#fff',
-        borderRadius: '9px',
+        borderRadius: '6px',
         cursor: 'pointer',
         fontSize: '13.5px',
         fontWeight: 600,
@@ -2344,9 +2344,9 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         height: '38px',
         padding: '0 20px',
         border: 'none',
-        background: ctx.acc,
+        background: `linear-gradient(45deg, ${ctx.acc}, color-mix(in srgb, ${ctx.acc} 68%, #ffffff))`,
         color: '#fff',
-        borderRadius: '9px',
+        borderRadius: '6px',
         cursor: 'pointer',
         fontSize: '13.5px',
         fontWeight: 600,

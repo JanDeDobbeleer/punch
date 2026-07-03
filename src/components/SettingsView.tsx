@@ -12,12 +12,12 @@ const cardStyle: CSSProperties = {
 const secondaryButtonStyle: CSSProperties = {
   height: '44px',
   padding: '0 14px',
-  border: '1px solid #e2e4e8',
+  border: '1px solid rgba(192, 200, 208, 0.55)',
   background: '#fff',
-  borderRadius: '9px',
+  borderRadius: '6px',
   cursor: 'pointer',
   fontSize: '13px',
-  fontWeight: 500,
+  fontWeight: 600,
   color: '#3a3f48',
 };
 
@@ -48,6 +48,7 @@ const SettingsView: FC<SettingsViewProps> = ({
 
         <button
           type="button"
+          className="btn-ghost"
           style={{ ...secondaryButtonStyle, padding: '0 16px' }}
           onClick={onBack}
         >
@@ -65,7 +66,7 @@ const SettingsView: FC<SettingsViewProps> = ({
 
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flexShrink: 0 }}>
             <input type="checkbox" checked={demoMode} onChange={onToggleDemoMode} />
-            <span style={{ fontSize: '13px', fontWeight: 500, color: demoMode ? '#1a1c20' : '#626873' }}>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: demoMode ? '#0d1e2e' : '#626873' }}>
               {demoMode ? 'On' : 'Off'}
             </span>
           </label>
@@ -105,7 +106,7 @@ const SettingsView: FC<SettingsViewProps> = ({
                   <div style={{ fontSize: '11px', letterSpacing: '0.05em', textTransform: 'uppercase', color: '#9ca3af', fontFamily: "'Geist Mono',monospace" }}>
                     Signed in as
                   </div>
-                  <div style={{ marginTop: '4px', fontSize: '13px', fontFamily: "'Geist Mono',monospace", color: '#1a1c20' }}>
+                  <div style={{ marginTop: '4px', fontSize: '13px', fontFamily: "'Geist Mono',monospace", color: '#0d1e2e' }}>
                     {signedInAs || 'Unknown'}
                   </div>
                 </div>
@@ -116,12 +117,13 @@ const SettingsView: FC<SettingsViewProps> = ({
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                 <button
                   type="button"
-                  style={{ ...secondaryButtonStyle, background: '#1a1c20', borderColor: '#1a1c20', color: '#fff' }}
-                  onClick={onSyncNow}
+                 className="btn-primary"
+                 style={{ ...secondaryButtonStyle, background: 'linear-gradient(45deg, #1e5667, color-mix(in srgb, #1e5667 68%, #ffffff))', borderColor: '#1e5667', color: '#fff' }}
+                 onClick={onSyncNow}
                 >
-                  Sync now
+                 Sync now
                 </button>
-                <button type="button" style={secondaryButtonStyle} onClick={onSignOut}>
+                <button type="button" className="btn-ghost" style={secondaryButtonStyle} onClick={onSignOut}>
                   Sign out
                 </button>
               </div>
@@ -145,7 +147,8 @@ const SettingsView: FC<SettingsViewProps> = ({
               </div>
               <button
                 type="button"
-                style={{ ...secondaryButtonStyle, background: '#1a1c20', borderColor: '#1a1c20', color: '#fff', flexShrink: 0 }}
+                className="btn-primary"
+                style={{ ...secondaryButtonStyle, background: 'linear-gradient(45deg, #1e5667, color-mix(in srgb, #1e5667 68%, #ffffff))', borderColor: '#1e5667', color: '#fff', flexShrink: 0 }}
                 onClick={onSignIn}
               >
                 Sign in with GitHub

@@ -25,8 +25,8 @@ body,
 
 body {
   font-family: 'Geist', -apple-system, system-ui, sans-serif;
-  color: #1a1c20;
-  background: #f5f6f8;
+  color: #0d1e2e;
+  background: #f6f8fb;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -44,6 +44,39 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+/* ── Button micro-interactions ──────────────────────────────────────────
+   Matches itdepends.be: lift on hover, press-down on active, filter
+   brightness on coloured primary buttons, shadow on ghost buttons.
+   The transition is declared on the element so both enter and exit animate. */
+button {
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0.5px);
+  transition-duration: 0.08s;
+}
+
+button:focus-visible {
+  outline: 2px solid #1e5667;
+  outline-offset: 2px;
+}
+
+/* Primary (coloured background) buttons: brightness lift on hover */
+.btn-primary:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
+/* Ghost / secondary buttons: subtle shadow on hover */
+.btn-ghost:not(:disabled):hover {
+  box-shadow: 0 3px 10px rgba(9, 29, 46, 0.09);
+  background: #fafbfc !important;
 }
 
 /* Touch feedback: hover-only affordances (below) don't fire on touch, so

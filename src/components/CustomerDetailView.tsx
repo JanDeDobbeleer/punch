@@ -155,7 +155,7 @@ const CustomerDetailView: FC<CustomerDetailViewProps> = ({
           >
             Export timesheet
           </button>
-          <button type="button" style={btnPrimaryLg} onClick={onNewProject}>
+          <button type="button" className="btn-primary" style={btnPrimaryLg} onClick={onNewProject}>
             + New project
           </button>
         </div>

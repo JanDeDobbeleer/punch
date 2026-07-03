@@ -30,9 +30,9 @@ const primaryButtonStyle: CSSProperties = {
   height: '44px',
   padding: '0 18px',
   border: 'none',
-  background: '#1a1c20',
+  background: 'linear-gradient(45deg, #1e5667, color-mix(in srgb, #1e5667 68%, #ffffff))',
   color: '#fff',
-  borderRadius: '9px',
+  borderRadius: '6px',
   cursor: 'pointer',
   fontSize: '13.5px',
   fontWeight: 600,
@@ -182,7 +182,7 @@ const ExportView: FC<ExportViewProps> = ({ customers, projects, services, entrie
               Generate a branded PDF timesheet and a zip of attachments to send with an invoice.
             </div>
           </div>
-          <button type="button" style={{ ...primaryButtonStyle, background: '#fff', border: '1px solid #e2e4e8', color: '#3a3f48' }} onClick={onBack}>
+          <button type="button" className="btn-ghost" style={{ ...primaryButtonStyle, background: '#fff', border: '1px solid rgba(192, 200, 208, 0.55)', color: '#3a3f48' }} onClick={onBack}>
             ← Back
           </button>
         </div>
@@ -254,12 +254,13 @@ const ExportView: FC<ExportViewProps> = ({ customers, projects, services, entrie
           </div>
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
-            <button type="button" style={primaryButtonStyle} onClick={() => void handleGeneratePdf()} disabled={busy !== null || matchingEntries.length === 0}>
+            <button type="button" className="btn-primary" style={primaryButtonStyle} onClick={() => void handleGeneratePdf()} disabled={busy !== null || matchingEntries.length === 0}>
               {busy === 'pdf' ? 'Generating…' : 'Generate PDF'}
             </button>
             <button
               type="button"
-              style={{ ...primaryButtonStyle, background: '#fff', border: '1px solid #e2e4e8', color: '#3a3f48' }}
+              className="btn-ghost"
+              style={{ ...primaryButtonStyle, background: '#fff', border: '1px solid rgba(192, 200, 208, 0.55)', color: '#3a3f48' }}
               onClick={() => void handleDownloadZip()}
               disabled={busy !== null || attachmentCount === 0}
             >

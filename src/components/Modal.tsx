@@ -68,7 +68,7 @@ const Modal: FC<ModalProps> = ({
           maxWidth: '100%',
           background: '#fff',
           borderRadius: '16px',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+          boxShadow: '0 16px 48px rgba(9, 29, 46, 0.18)',
           padding: '26px',
         }}
         onClick={stopOverlay}
@@ -91,8 +91,8 @@ const Modal: FC<ModalProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      background: entryForm.kind === 'project' ? '#1a1c20' : '#fff',
-                      color: entryForm.kind === 'project' ? '#fff' : '#1a1c20',
+                      background: entryForm.kind === 'project' ? '#0d1e2e' : '#fff',
+                      color: entryForm.kind === 'project' ? '#fff' : '#0d1e2e',
                       cursor: 'pointer',
                     }}
                     onClick={() => onFormKind('project')}
@@ -106,8 +106,8 @@ const Modal: FC<ModalProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      background: entryForm.kind === 'service' ? '#1a1c20' : '#fff',
-                      color: entryForm.kind === 'service' ? '#fff' : '#1a1c20',
+                      background: entryForm.kind === 'service' ? '#0d1e2e' : '#fff',
+                      color: entryForm.kind === 'service' ? '#fff' : '#0d1e2e',
                       cursor: 'pointer',
                     }}
                     onClick={() => onFormKind('service')}
@@ -121,8 +121,8 @@ const Modal: FC<ModalProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      background: entryForm.kind === 'customer' ? '#1a1c20' : '#fff',
-                      color: entryForm.kind === 'customer' ? '#fff' : '#1a1c20',
+                      background: entryForm.kind === 'customer' ? '#0d1e2e' : '#fff',
+                      color: entryForm.kind === 'customer' ? '#fff' : '#0d1e2e',
                       cursor: 'pointer',
                     }}
                     onClick={() => onFormKind('customer')}
@@ -315,8 +315,8 @@ const Modal: FC<ModalProps> = ({
                         cursor: 'pointer',
                         fontSize: '13px',
                         fontWeight: 500,
-                        border: '1px solid #d7dadf',
-                        background: entryForm.hours === preset.value ? '#1a1c20' : '#fff',
+                        border: '1px solid rgba(192, 200, 208, 0.55)',
+                        background: entryForm.hours === preset.value ? '#0d1e2e' : '#fff',
                         color: entryForm.hours === preset.value ? '#fff' : '#3a3f48',
                       }}
                     >
@@ -426,16 +426,16 @@ const Modal: FC<ModalProps> = ({
 
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
-              className="modal-cancel-btn"
+              className="modal-cancel-btn btn-ghost"
               style={{
                 height: '38px',
                 padding: '0 16px',
-                border: '1px solid #e2e4e8',
+                border: '1px solid rgba(192, 200, 208, 0.55)',
                 background: '#fff',
-                borderRadius: '9px',
+                borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '13.5px',
-                fontWeight: 500,
+                fontWeight: 600,
                 color: '#3a3f48',
               }}
               onClick={onCancel}
@@ -443,7 +443,7 @@ const Modal: FC<ModalProps> = ({
               Cancel
             </button>
             <button
-              className="modal-save-btn"
+              className="modal-save-btn btn-primary"
               style={{ ...btnPrimaryLg, ...(budgetWarning ? { opacity: 0.4, cursor: 'not-allowed' } : {}) }}
               onClick={onSave}
               disabled={!!budgetWarning}

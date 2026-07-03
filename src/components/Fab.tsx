@@ -6,7 +6,7 @@ interface FabProps {
   background?: string;
 }
 
-const Fab: FC<FabProps> = ({ label, onClick, background = '#2563eb' }) => {
+const Fab: FC<FabProps> = ({ label, onClick, background = '#1e5667' }) => {
   return (
     <button type="button" className="fab" aria-label={label} onClick={onClick} style={{ background }}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">

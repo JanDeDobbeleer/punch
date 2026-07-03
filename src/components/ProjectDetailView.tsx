@@ -276,7 +276,7 @@ const ProjectDetailView: FC<ProjectDetailViewProps> = ({
             )}
           </div>
 
-          <button type="button" style={btnPrimaryLg} onClick={onSave}>
+          <button type="button" className="btn-primary" style={btnPrimaryLg} onClick={onSave}>
             {saveLabel}
           </button>
         </div>
