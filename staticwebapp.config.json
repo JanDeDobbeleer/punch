@@ -24,7 +24,7 @@
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://<your-storage-account>.blob.core.windows.net; connect-src 'self' https://<your-storage-account>.blob.core.windows.net; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.blob.core.windows.net; connect-src 'self' https://*.blob.core.windows.net; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
   },
   "navigationFallback": {
     "rewrite": "/index.html",

@@ -38,3 +38,12 @@ api/local.settings.json
 # Artifacts
 
 api/scripts/
+
+# TLS/cert files
+*.pem
+*.key
+*.p12
+*.pfx
+
+# SWA CLI config (may contain deployment tokens)
+swa-cli.config.json

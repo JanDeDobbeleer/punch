@@ -110,12 +110,10 @@ considering a task done.
 
 ## Azure resources (for reference, not to be recreated blindly)
 
-- Subscription: **`<your-subscription>`** (not the default `<your-default-subscription>`
-  subscription — run `az account set --subscription <your-subscription>` before touching
-  these resources with the CLI).
-- Resource group: `<your-resource-group>` (West Europe)
+- Subscription: set the correct subscription with `az account set --subscription <your-subscription>` before touching these resources with the CLI.
+- Resource group: `<your-resource-group>` (e.g. West Europe)
 - Storage account: `<your-storage-account>` (Standard_LRS, blob versioning enabled)
-  - CORS (blob service): GET/HEAD allowed for `https://<your-custom-domain>`,
+  - CORS (blob service): GET/HEAD allowed for your custom domain,
     the default `*.azurestaticapps.net` hostname, and `http://localhost:5173`
     (local Vite dev) — required for client-side attachment zip downloads in
     the timesheet export feature. Update this rule if the app's origins

@@ -35,7 +35,7 @@ const skipAuthCheck = process.env.TEMPO_SKIP_AUTH_CHECK === '1';
 
 export function requireOwner(request: HttpRequest): ClientPrincipal | null {
   if (skipAuthCheck) {
-    return null;
+    return { identityProvider: 'local', userId: 'local-dev', userDetails: 'local-dev', userRoles: ['owner'] };
   }
 
   const principal = getClientPrincipal(request);
