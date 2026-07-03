@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { aggregateBy, entryEarnValue, filterEntries, summarize } from './earnings';
+import { aggregateBy, buildChartData, entryEarnValue, filterEntries, summarize } from './earnings';
 import type { Customer, Entry, Project, Service } from '../types';
 
 const customers: Customer[] = [
@@ -92,5 +92,66 @@ describe('earnings helpers', () => {
     const zeroEntries: Entry[] = [{ id: 'e0', kind: 'project', date: '2026-01-05', projectId: 'p0', serviceId: null, customerId: null, amount: null, minutes: 480, comment: '', attachments: [] }];
     const rows = aggregateBy(zeroEntries, zeroRateProjects, [], customers, 'customer', HOURS_PER_DAY);
     expect(rows[0].sharePct).toBe(0);
+  });
+});
+
+describe('buildChartData', () => {
+  test('uses day granularity for spans of 35 days or fewer', () => {
+    const { granularity, xPoints } = buildChartData(
+      entries, projects, services, customers, HOURS_PER_DAY,
+      '2026-01-01', '2026-01-31',
+    );
+    expect(granularity).toBe('day');
+    expect(xPoints).toHaveLength(31);
+    expect(xPoints[0]).toBe('2026-01-01');
+    expect(xPoints[30]).toBe('2026-01-31');
+  });
+
+  test('uses month granularity for spans greater than 35 days', () => {
+    const { granularity, xPoints, xLabels } = buildChartData(
+      entries, projects, services, customers, HOURS_PER_DAY,
+      '2026-01-01', '2026-12-31',
+    );
+    expect(granularity).toBe('month');
+    expect(xPoints).toHaveLength(12);
+    expect(xLabels[0]).toBe('Jan');
+    expect(xLabels[11]).toBe('Dec');
+  });
+
+  test('groups entries by customer and only includes customers with data', () => {
+    const { series } = buildChartData(
+      entries, projects, services, customers, HOURS_PER_DAY,
+      '2026-01-01', '2026-12-31',
+    );
+    // c1 has e1+e2 in January; c2 has e3 in February
+    const ids = series.filter(s => s.id !== '__services__').map(s => s.id);
+    expect(ids).toContain('c1');
+    expect(ids).toContain('c2');
+  });
+
+  test('service entries appear as a __services__ series', () => {
+    const { series } = buildChartData(
+      entries, projects, services, customers, HOURS_PER_DAY,
+      '2026-01-01', '2026-12-31',
+    );
+    const svcSeries = series.find(s => s.id === '__services__');
+    expect(svcSeries).toBeDefined();
+    expect(svcSeries!.name).toBe('Services');
+    // e4 is a service entry on 2026-01-20 → month key '2026-01'
+    const janIdx = series[0].values.length > 0 ? 0 : -1; // month 0 = Jan
+    expect(svcSeries!.values[janIdx]).toBeCloseTo(900);
+  });
+
+  test('per-day values sum correctly to the total earnings for the period', () => {
+    const { series } = buildChartData(
+      entries, projects, services, customers, HOURS_PER_DAY,
+      '2026-01-01', '2026-01-31',
+    );
+    const totalFromChart = series.reduce(
+      (sum, s) => sum + s.values.reduce((a, b) => a + b, 0),
+      0,
+    );
+    // e1 (800) + e2 (300) + e4 (900) are in January
+    expect(totalFromChart).toBeCloseTo(2000);
   });
 });

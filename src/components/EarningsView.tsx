@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties, typ
 import type { EarningsRowVM, EarningsViewProps } from '../types';
 import { daysInMonth, defaultExportPeriod, fmtMonthYear, fmtShortDateYear, monthBounds, parseISO, quarterBounds, yearBounds } from '../lib/dates';
 import { fmtEUR, fmtH } from '../lib/format';
-import { aggregateBy, filterEntries, summarize } from '../lib/earnings';
+import { aggregateBy, buildChartData, filterEntries, summarize } from '../lib/earnings';
+import EarningsChart from './EarningsChart';
 
 const cardStyle: CSSProperties = {
   background: '#fff',
@@ -142,6 +143,11 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
     }));
   }, [customers, filteredEntries, groupBy, hoursPerDay, projects, services]);
 
+  const chartData = useMemo(
+    () => buildChartData(filteredEntries, projects, services, customers, hoursPerDay, fromISO, toISO),
+    [filteredEntries, projects, services, customers, hoursPerDay, fromISO, toISO],
+  );
+
   const periodLabel = useMemo(() => {
     const from = parseISO(fromISO);
     const to = parseISO(toISO);
@@ -253,6 +259,18 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
             </div>
           </div>
         </section>
+
+        {chartData.series.length > 0 && (
+          <section style={cardStyle}>
+            <div style={{ fontSize: '15px', fontWeight: 600, marginBottom: '16px' }}>
+              Earnings over time
+              <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 500, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {chartData.granularity === 'day' ? 'per day' : 'per month'}
+              </span>
+            </div>
+            <EarningsChart data={chartData} />
+          </section>
+        )}
 
         <section style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>

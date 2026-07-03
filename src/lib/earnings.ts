@@ -3,6 +3,7 @@
 // so numbers always match.
 
 import type { Customer, Entry, Project, Service } from '../types';
+import { iso, pad, parseISO } from './dates';
 import { rateForDate } from './rates';
 
 export interface EarningsFilter {
@@ -158,4 +159,118 @@ export function aggregateBy(
   });
 
   return rows.sort((a, b) => b.earn - a.earn);
+}
+
+// ─── earnings-over-time chart data ───────────────────────────────────────────
+
+const CHART_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+export interface ChartSeries {
+  id: string;
+  name: string;
+  color: string;
+  values: number[]; // earn per X point, aligned with xPoints
+}
+
+export interface ChartData {
+  xPoints: string[];    // 'yyyy-mm-dd' (day granularity) or 'yyyy-mm' (month)
+  xLabels: string[];    // short display labels for X axis
+  series: ChartSeries[];
+  granularity: 'day' | 'month';
+}
+
+// Builds a time-series chart data structure from already-filtered entries.
+// Uses day granularity when the span is ≤35 days, month granularity otherwise.
+// Produces one line per customer (using their color) plus an optional
+// "Services" line for service entries that don't belong to a customer.
+export function buildChartData(
+  entries: Entry[],
+  projects: Project[],
+  services: Service[],
+  customers: Customer[],
+  hoursPerDay: number,
+  fromISO: string,
+  toISO: string,
+): ChartData {
+  const from = parseISO(fromISO);
+  const to = parseISO(toISO);
+  const diffDays = Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1;
+  const granularity: 'day' | 'month' = diffDays <= 35 ? 'day' : 'month';
+
+  // Build the X axis — every day or every month in [fromISO, toISO].
+  const xPoints: string[] = [];
+  const xLabels: string[] = [];
+
+  if (granularity === 'day') {
+    const cur = new Date(from);
+    while (iso(cur) <= toISO) {
+      xPoints.push(iso(cur));
+      xLabels.push(String(cur.getDate()));
+      cur.setDate(cur.getDate() + 1);
+    }
+  } else {
+    const toKey = `${to.getFullYear()}-${pad(to.getMonth() + 1)}`;
+    const cur = new Date(from.getFullYear(), from.getMonth(), 1, 12);
+    for (;;) {
+      const key = `${cur.getFullYear()}-${pad(cur.getMonth() + 1)}`;
+      xPoints.push(key);
+      xLabels.push(CHART_MONTHS[cur.getMonth()]);
+      if (key >= toKey) break;
+      cur.setMonth(cur.getMonth() + 1);
+    }
+  }
+
+  // Lookup maps
+  const projById: Record<string, Project> = {};
+  projects.forEach(p => { projById[p.id] = p; });
+  const svcById: Record<string, Service> = {};
+  services.forEach(s => { svcById[s.id] = s; });
+
+  // Accumulate earn per (seriesId, xKey).
+  const earnMap = new Map<string, Record<string, number>>();
+  const addEarn = (seriesId: string, xKey: string, value: number) => {
+    if (value === 0) return;
+    const bucket = earnMap.get(seriesId) ?? {};
+    bucket[xKey] = (bucket[xKey] ?? 0) + value;
+    earnMap.set(seriesId, bucket);
+  };
+
+  entries.forEach(entry => {
+    const xKey = granularity === 'day' ? entry.date : entry.date.slice(0, 7);
+    const proj = projById[entry.projectId ?? ''];
+    const svc = svcById[entry.serviceId ?? ''];
+    const value = entryEarnValue(entry, proj, svc, hoursPerDay);
+
+    if (entry.kind === 'service') {
+      addEarn('__services__', xKey, value);
+    } else if (entry.kind === 'customer') {
+      addEarn(entry.customerId ?? '__unknown__', xKey, value);
+    } else {
+      addEarn(proj?.customerId ?? '__unknown__', xKey, value);
+    }
+  });
+
+  // One series per customer that has data, sorted by total earnings desc.
+  const series: ChartSeries[] = [];
+  customers.forEach(c => {
+    const byKey = earnMap.get(c.id);
+    if (!byKey) return;
+    series.push({ id: c.id, name: c.name, color: c.color, values: xPoints.map(k => byKey[k] ?? 0) });
+  });
+  series.sort((a, b) =>
+    b.values.reduce((s, v) => s + v, 0) - a.values.reduce((s, v) => s + v, 0),
+  );
+
+  // Append a pseudo-series for service entries (no owning customer).
+  const svcByKey = earnMap.get('__services__');
+  if (svcByKey) {
+    series.push({
+      id: '__services__',
+      name: 'Services',
+      color: '#9ca3af',
+      values: xPoints.map(k => svcByKey[k] ?? 0),
+    });
+  }
+
+  return { xPoints, xLabels, series, granularity };
 }
