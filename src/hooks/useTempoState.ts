@@ -1698,7 +1698,8 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     // at-a-glance summary (entries + weekly breakdown).
     let panel: TrackDayPanelVM | TrackMonthGlanceVM;
     const selectedISO = ctx.selectedTrackDayISO;
-    const selectedEntries = selectedISO ? (entriesByDate.get(selectedISO) ?? []) : [];
+    const allSelectedEntries = selectedISO ? (entriesByDate.get(selectedISO) ?? []) : [];
+    const selectedEntries = filterKey ? allSelectedEntries.filter(matchesFilter) : allSelectedEntries;
     if (selectedISO && (selectedEntries.length > 0 || parseISO(selectedISO).getMonth() === monthIndex)) {
       const selectedDate = parseISO(selectedISO);
       const dayMinutes = selectedEntries.reduce((sum, entry) => sum + entry.minutes, 0);
