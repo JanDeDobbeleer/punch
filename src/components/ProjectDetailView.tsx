@@ -25,6 +25,7 @@ const ProjectDetailView: FC<ProjectDetailViewProps> = ({
   onSave,
   onDelete,
   onBack,
+  onExport,
 }) => (
   <div style={{ flex: 1, overflow: 'auto', padding: '26px' }}>
     <div style={{ maxWidth: '720px', margin: '0 auto' }}>
@@ -172,21 +173,40 @@ const ProjectDetailView: FC<ProjectDetailViewProps> = ({
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '26px' }}>
           {canDelete ? (
-            <button
-              type="button"
-              onClick={onDelete}
-              style={{
-                border: 'none',
-                background: 'none',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: '#dc2626',
-                padding: '8px 4px',
-              }}
-            >
-              Delete project
-            </button>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={onDelete}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#dc2626',
+                  padding: '8px 4px',
+                }}
+              >
+                Delete project
+              </button>
+              <button
+                type="button"
+                onClick={onExport}
+                style={{
+                  height: '34px',
+                  padding: '0 16px',
+                  border: '1px solid #d7dadf',
+                  background: '#fff',
+                  borderRadius: '9px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#3a3f48',
+                }}
+              >
+                Export timesheet
+              </button>
+            </div>
           ) : (
             <span />
           )}

@@ -19,6 +19,7 @@ const CustomerDetailView: FC<CustomerDetailViewProps> = ({
   onBack,
   onNewProject,
   onDeleteCustomer,
+  onExport,
 }) => (
   <div style={{ flex: 1, overflow: 'auto', padding: '26px' }}>
     <div style={{ maxWidth: '820px', margin: '0 auto' }}>
@@ -118,9 +119,28 @@ const CustomerDetailView: FC<CustomerDetailViewProps> = ({
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
         <div style={{ fontSize: '15px', fontWeight: 600 }}>Projects</div>
-        <button type="button" style={btnPrimaryLg} onClick={onNewProject}>
-          + New project
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={onExport}
+            style={{
+              height: '34px',
+              padding: '0 16px',
+              border: '1px solid #d7dadf',
+              background: '#fff',
+              borderRadius: '9px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: 600,
+              color: '#3a3f48',
+            }}
+          >
+            Export timesheet
+          </button>
+          <button type="button" style={btnPrimaryLg} onClick={onNewProject}>
+            + New project
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

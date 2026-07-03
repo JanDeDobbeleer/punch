@@ -83,6 +83,15 @@ e2e/                       # Playwright end-to-end specs
 - **Local API dev**: `api/src/auth.ts` supports a `TEMPO_SKIP_AUTH_CHECK=1`
   env var escape hatch, since there's no SWA auth proxy in front of Functions
   during local `func start` / Azurite testing.
+- **Timesheet export** (`src/components/ExportView.tsx`, `src/lib/timesheetExport.ts`)
+  generates a branded PDF (styled after the IT depends offering documents —
+  logo, near-black/gray palette) and a zip of attachments for a customer or
+  project + date range, entirely client-side using `pdf-lib` and `jszip`
+  (lazy-loaded via `React.lazy` so they don't bloat the main bundle). Entry
+  data comes straight from state already in memory; attachment bytes are
+  fetched directly from Blob Storage via the existing SAS download URLs. This
+  requires **CORS enabled on the storage account's blob service** (GET/HEAD)
+  for the app's origins — see the CORS rule note below.
 
 ## Build, lint, and test commands
 
@@ -101,9 +110,17 @@ considering a task done.
 
 ## Azure resources (for reference, not to be recreated blindly)
 
+- Subscription: **`<your-subscription>`** (not the default `<your-default-subscription>`
+  subscription — run `az account set --subscription <your-subscription>` before touching
+  these resources with the CLI).
 - Resource group: `<your-resource-group>` (West Europe)
 - Storage account: `<your-storage-account>` (Standard_LRS, blob versioning enabled)
-- Static Web App: `<your-swa-resource>` (Free tier)
+  - CORS (blob service): GET/HEAD allowed for `https://<your-custom-domain>`,
+    the default `*.azurestaticapps.net` hostname, and `http://localhost:5173`
+    (local Vite dev) — required for client-side attachment zip downloads in
+    the timesheet export feature. Update this rule if the app's origins
+    change (e.g. new custom domain, different local dev port).
+- Static Web App: `<your-swa-resource>` (Free tier), custom domain `<your-custom-domain>`
 - Containers: `state`, `attachments`
 
 If you need to change app settings, roles, or redeploy infra, prefer

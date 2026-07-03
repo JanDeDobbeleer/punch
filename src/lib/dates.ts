@@ -57,3 +57,27 @@ export function fmtMonthYear(d: Date): string {
 export function fmtFullDate(d: Date): string {
   return `${LONG_WEEKDAYS[d.getDay()]}, ${d.getDate()} ${LONG_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
+
+export function daysInMonth(year: number, month0: number): number {
+  return new Date(year, month0 + 1, 0).getDate();
+}
+
+// Inclusive [from, to] ISO bounds for the first/last day of the month
+// containing `d`.
+export function monthBounds(d: Date): { from: string; to: string } {
+  const year = d.getFullYear();
+  const month0 = d.getMonth();
+  return {
+    from: iso(new Date(year, month0, 1, 12)),
+    to: iso(new Date(year, month0, daysInMonth(year, month0), 12)),
+  };
+}
+
+// Timesheet export default period: the current month once we're within its
+// last 3 days (hours are usually already filled in by then), otherwise the
+// previous month.
+export function defaultExportPeriod(today: Date): { from: string; to: string } {
+  const daysLeft = daysInMonth(today.getFullYear(), today.getMonth()) - today.getDate();
+  const reference = daysLeft < 3 ? today : addMonths(today, -1);
+  return monthBounds(reference);
+}

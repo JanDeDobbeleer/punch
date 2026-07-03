@@ -50,7 +50,7 @@ export interface Entry {
   attachments: AttachmentRef[];
 }
 
-export type Page = 'track' | 'projects' | 'customers' | 'settings' | 'customerDetail' | 'projectDetail';
+export type Page = 'track' | 'projects' | 'customers' | 'settings' | 'customerDetail' | 'projectDetail' | 'export';
 export type View = 'week' | 'day' | 'month';
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'conflict';
 
@@ -116,9 +116,11 @@ export interface SidebarProps {
   navTrackStyle: CSSProperties;
   navProjectsStyle: CSSProperties;
   navCustomersStyle: CSSProperties;
+  navExportStyle: CSSProperties;
   onNavTrack: () => void;
   onNavProjects: () => void;
   onNavCustomers: () => void;
+  onNavExport: () => void;
   weekHours: string;
   weekDaysStr: string;
   weekEarnStr: string;
@@ -358,6 +360,7 @@ export interface CustomerDetailViewProps {
   onBack: () => void;
   onNewProject: () => void;
   onDeleteCustomer: () => void;
+  onExport: () => void;
 }
 
 // ─── project detail page (drill down from Projects list or a customer) ──
@@ -384,6 +387,20 @@ export interface ProjectDetailViewProps {
   onAddRate: () => void;
   onSave: () => void;
   onDelete: () => void;
+  onBack: () => void;
+  onExport: () => void;
+}
+
+// ─── timesheet export page (PDF + attachments zip for a customer or project) ──
+
+export type ExportScope = { type: 'customer'; id: string } | { type: 'project'; id: string };
+
+export interface ExportViewProps {
+  customers: Customer[];
+  projects: Project[];
+  entries: Entry[];
+  hoursPerDay: number;
+  initialScope: ExportScope | null;
   onBack: () => void;
 }
 
@@ -420,6 +437,7 @@ export interface TempoViewModel {
   showSettings: boolean;
   showCustomerDetail: boolean;
   showProjectDetail: boolean;
+  showExport: boolean;
   modalOpen: boolean;
   sidebarProps: SidebarProps;
   headerProps: AppHeaderProps;
@@ -431,5 +449,6 @@ export interface TempoViewModel {
   settingsProps: SettingsViewProps | null;
   customerDetailProps: CustomerDetailViewProps | null;
   projectDetailProps: ProjectDetailViewProps | null;
+  exportProps: ExportViewProps | null;
   modalProps: ModalProps | null;
 }

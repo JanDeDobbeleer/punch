@@ -1,4 +1,4 @@
-import { type FC, useEffect, useState } from 'react';
+import { type FC, Suspense, lazy, useEffect, useState } from 'react';
 import { useTempoState } from './hooks/useTempoState';
 import { useIsMobile } from './hooks/useMediaQuery';
 import type { TempoSettings } from './types';
@@ -14,6 +14,10 @@ import ProjectDetailView from './components/ProjectDetailView';
 import SettingsView from './components/SettingsView';
 import Modal from './components/Modal';
 import Fab from './components/Fab';
+
+// Loaded on demand: pulls in pdf-lib/jszip, which are only needed once the
+// user actually opens the export page.
+const ExportView = lazy(() => import('./components/ExportView'));
 
 // Mirrors the DC root's editable-settings defaults (see Tempo.dc.html's
 // data-props block: accentColor / hoursPerDay / showWeekend).
@@ -35,6 +39,7 @@ const App: FC = () => {
     showCustomerDetail,
     showProjectDetail,
     showSettings,
+    showExport,
     modalOpen,
     sidebarProps,
     headerProps,
@@ -46,6 +51,7 @@ const App: FC = () => {
     customerDetailProps,
     projectDetailProps,
     settingsProps,
+    exportProps,
     modalProps,
   } = useTempoState(SETTINGS);
 
@@ -86,6 +92,11 @@ const App: FC = () => {
         {showCustomerDetail && customerDetailProps && <CustomerDetailView {...customerDetailProps} />}
         {showProjectDetail && projectDetailProps && <ProjectDetailView {...projectDetailProps} />}
         {showSettings && settingsProps && <SettingsView {...settingsProps} />}
+        {showExport && exportProps && (
+          <Suspense fallback={<div style={{ padding: '26px', color: '#626873' }}>Loading export…</div>}>
+            <ExportView {...exportProps} />
+          </Suspense>
+        )}
       </main>
 
       {isMobile && fabConfig && <Fab label={fabConfig.label} onClick={fabConfig.onClick} />}
