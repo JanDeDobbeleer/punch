@@ -404,6 +404,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
           newRateAmount: String(currentRatePeriod(project.rates)?.amount ?? ''),
           newRateFrom: iso(new Date()),
           budget: String(project.budget ?? ''),
+          closed: project.closed ?? false,
         }
       : {
           id: null,
@@ -413,6 +414,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
           newRateAmount: '600',
           newRateFrom: iso(new Date()),
           budget: '',
+          closed: false,
         }
   ), []);
 
@@ -623,6 +625,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         customerId: draft.customerId,
         rates,
         budget,
+        closed: draft.closed || false,
       };
 
       return {
@@ -650,6 +653,22 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     }));
     backFromProjectDetail();
   }, [backFromProjectDetail]);
+
+  const toggleProjectClosed = useCallback(() => {
+    const draft = stateRef.current.projectDraft;
+    if (!draft?.id) return;
+    const projectId = draft.id;
+    setState((current) => {
+      const project = current.projects.find((p) => p.id === projectId);
+      if (!project) return current;
+      const newClosed = !project.closed;
+      return {
+        ...current,
+        projects: current.projects.map((p) => (p.id === projectId ? { ...p, closed: newClosed } : p)),
+        projectDraft: current.projectDraft ? { ...current.projectDraft, closed: newClosed } : current.projectDraft,
+      };
+    });
+  }, []);
 
   const updateServiceDraft = useCallback((key: 'name' | 'newRateAmount' | 'newRateFrom', value: string) => {
     setState((current) => {
@@ -1745,7 +1764,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       return null;
     }
 
-    const projRows = ctx.S.projects.map((project) => {
+    const allRows = ctx.S.projects.map((project) => {
       const entries = ctx.S.entries.filter((entry) => entry.kind === 'project' && entry.projectId === project.id);
       const minutes = entries.reduce((sum, entry) => sum + entry.minutes, 0);
       const earn = entries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
@@ -1753,6 +1772,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       const budgetCap = budgetAmount > 0 ? `/ ${fmtEUR(budgetAmount)}` : null;
       const budgetPct = budgetAmount > 0 ? Math.round((earn / budgetAmount) * 100) : null;
       const budgetReached = budgetAmount > 0 && earn >= budgetAmount;
+      const isClosed = project.closed === true || budgetReached;
       return {
         id: project.id,
         name: project.name,
@@ -1765,10 +1785,14 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         budgetCap,
         budgetPct,
         budgetReached,
+        isClosed,
       };
     });
 
-    return { projRows, projEmpty: projRows.length === 0 };
+    const activeRows = allRows.filter((row) => !row.isClosed);
+    const closedRows = allRows.filter((row) => row.isClosed);
+
+    return { activeRows, closedRows, projEmpty: allRows.length === 0 };
   }, [ctx, openProjectDetail]);
 
   const servicesProps = useMemo<ServicesViewProps | null>(() => {
@@ -1892,18 +1916,20 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         id: customer.id,
         name: customer.name,
       })),
-      projOpts: ctx.S.projects.map((project) => {
-        let name = `${project.name}  ·  ${ctx.custById[project.customerId]?.name || '—'}`;
-        if (modal.isNew && isEntryModal && (project.budget ?? 0) > 0) {
-          const spent = ctx.S.entries
+      projOpts: ctx.S.projects
+        .filter((project) => {
+          if (project.closed) return false;
+          const budgetAmount = project.budget ?? 0;
+          if (!budgetAmount) return true;
+          const earned = ctx.S.entries
             .filter((e) => e.kind === 'project' && e.projectId === project.id)
             .reduce((sum, e) => sum + ctx.entryEarn(e), 0);
-          if (spent >= project.budget!) {
-            name += '  ·  ⚠ Budget reached';
-          }
-        }
-        return { id: project.id, name };
-      }),
+          return earned < budgetAmount;
+        })
+        .map((project) => ({
+          id: project.id,
+          name: `${project.name}  ·  ${ctx.custById[project.customerId]?.name || '—'}`,
+        })),
       inputStyle,
       textareaStyle: { ...inputStyle, resize: 'vertical', lineHeight: 1.4 },
       labelStyle: { display: 'block', fontSize: '12px', fontWeight: 500, color: '#626873', marginBottom: '6px' },
@@ -2201,8 +2227,11 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       budgetSpentLabel,
       budgetPct,
       onBudgetChange: (event: ChangeEvent<HTMLInputElement>) => updateProjectDraft('budget', event.target.value),
+      closed: draft.closed,
+      effectivelyClosed: draft.closed || (hasBudget && earn >= budgetAmount),
+      onToggleClosed: toggleProjectClosed,
     };
-  }, [addRate, backFromProjectDetail, ctx, deleteProjectDraft, deleteRate, openEarnings, openEntry, openExport, saveProjectDraft, updateProjectDraft, updateRateField]);
+  }, [addRate, backFromProjectDetail, ctx, deleteProjectDraft, deleteRate, openEarnings, openEntry, openExport, saveProjectDraft, toggleProjectClosed, updateProjectDraft, updateRateField]);
 
   const serviceDetailProps = useMemo<ServiceDetailViewProps | null>(() => {
     if (!ctx.isServiceDetail || !ctx.S.serviceDraft) {

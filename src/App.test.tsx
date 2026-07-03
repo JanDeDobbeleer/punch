@@ -180,7 +180,7 @@ describe('App FAB integration', () => {
         isProjects: true,
       },
       trackProps: null,
-      projectsProps: { projRows: [], projEmpty: true },
+      projectsProps: { activeRows: [], closedRows: [], projEmpty: true },
     }))
 
     render(<App />)

@@ -29,6 +29,7 @@ export interface Project {
   customerId: string;
   rates: RatePeriod[];
   budget?: number | null;  // optional budget cap in €; undefined/null/0 = no cap
+  closed?: boolean;        // manually closed; budget-exceeded projects are also treated as closed
 }
 
 export interface Service {
@@ -93,7 +94,8 @@ export interface ProjectForm {
   rates: RatePeriod[];
   newRateAmount: string;
   newRateFrom: string;
-  budget: string;  // raw text input for budget cap ('' or '5000'); empty = no cap
+  budget: string;   // raw text input for budget cap ('' or '5000'); empty = no cap
+  closed: boolean;
 }
 
 export interface ServiceForm {
@@ -299,10 +301,12 @@ export interface ProjectRowVM {
   budgetCap: string | null;    // e.g. "/ €5,000"; null if no budget set
   budgetPct: number | null;    // 0–100+ percentage of budget spent; null if no budget
   budgetReached: boolean;
+  isClosed: boolean;           // true when manually closed or budget cap reached
 }
 
 export interface ProjectsViewProps {
-  projRows: ProjectRowVM[];
+  activeRows: ProjectRowVM[];
+  closedRows: ProjectRowVM[];
   projEmpty: boolean;
 }
 
@@ -478,6 +482,10 @@ export interface ProjectDetailViewProps {
   budgetSpentLabel: string;    // e.g. "€2,400 of €5,000 spent"; '' if no budget
   budgetPct: number | null;    // null if no budget
   onBudgetChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  // Close / reopen
+  closed: boolean;             // true when manually closed (not budget-auto-close)
+  effectivelyClosed: boolean;  // true when closed OR budget cap reached
+  onToggleClosed: () => void;
 }
 
 export interface ServiceDetailViewProps {

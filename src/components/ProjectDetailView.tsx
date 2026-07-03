@@ -33,6 +33,9 @@ const ProjectDetailView: FC<ProjectDetailViewProps> = ({
   budgetSpentLabel,
   budgetPct,
   onBudgetChange,
+  closed,
+  effectivelyClosed,
+  onToggleClosed,
 }) => (
   <div style={{ flex: 1, overflow: 'auto', padding: '26px' }}>
     <div style={{ maxWidth: '720px', margin: '0 auto' }}>
@@ -57,6 +60,28 @@ const ProjectDetailView: FC<ProjectDetailViewProps> = ({
         </svg>
         Back
       </button>
+
+      {effectivelyClosed && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '10px 14px',
+          marginBottom: '14px',
+          background: '#f9fafb',
+          border: '1px solid #e9ebef',
+          borderRadius: '10px',
+          fontSize: '13px',
+          color: '#626873',
+        }}>
+          <span style={{ fontSize: '15px' }}>🔒</span>
+          <span>
+            {closed
+              ? 'This project is closed. No new entries can be booked against it.'
+              : 'This project is closed because its budget cap has been reached.'}
+          </span>
+        </div>
+      )}
 
       <div style={{ background: '#fff', border: '1px solid #e9ebef', borderRadius: '14px', padding: '22px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -214,25 +239,42 @@ const ProjectDetailView: FC<ProjectDetailViewProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '26px' }}>
-          {canDelete ? (
-            <button
-              type="button"
-              onClick={onDelete}
-              style={{
-                border: 'none',
-                background: 'none',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: '#dc2626',
-                padding: '8px 4px',
-              }}
-            >
-              Delete project
-            </button>
-          ) : (
-            <span />
-          )}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {canDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#dc2626',
+                  padding: '8px 4px',
+                }}
+              >
+                Delete project
+              </button>
+            )}
+            {canDelete && (
+              <button
+                type="button"
+                onClick={onToggleClosed}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: closed ? '#16a34a' : '#626873',
+                  padding: '8px 4px',
+                }}
+              >
+                {closed ? 'Reopen project' : 'Close project'}
+              </button>
+            )}
+          </div>
 
           <button type="button" style={btnPrimaryLg} onClick={onSave}>
             {saveLabel}
