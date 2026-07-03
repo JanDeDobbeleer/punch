@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  color: #1a1c20;
+  background: #f5f6f8;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: #dbe4f5;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dadde2;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c4c8ce;
+  background-clip: content-box;
+}
+
+.entry-block,
+.day-list-row,
+.month-cell {
+  transition: box-shadow 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+
+.entry-block:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.day-list-row:hover {
+  border-color: #dfe2e7;
+}
+
+.month-cell:hover {
+  background: #f8f9fb;
+}

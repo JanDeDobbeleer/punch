@@ -1,0 +1,1453 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent, type MouseEvent } from 'react';
+
+import { addDays, addMonths, iso, parseISO, startOfWeek } from '../lib/dates';
+import { fmtEUR, fmtH, fmtMin, hexToRgba, parseHM, uid } from '../lib/format';
+import * as store from '../lib/store';
+import type {
+  AppHeaderProps,
+  Customer,
+  CustomerForm,
+  CustomersViewProps,
+  DayListRowVM,
+  DayViewProps,
+  DragState,
+  Entry,
+  EntryBlockVM,
+  EntryForm,
+  GistStatus,
+  HourRowVM,
+  ModalProps,
+  ModalState,
+  MonthCellVM,
+  MonthViewProps,
+  Page,
+  PersistedData,
+  Project,
+  ProjectForm,
+  ProjectsViewProps,
+  SettingsViewProps,
+  SidebarProps,
+  TempoSettings,
+  TempoViewModel,
+  View,
+  WeekDayVM,
+  WeekViewProps,
+} from '../types';
+
+const ROW = 44;
+const START = 7;
+const END = 22;
+const PAD = 12;
+
+type TempoState = PersistedData & {
+  page: Page;
+  view: View;
+  refISO: string;
+  modal: ModalState | null;
+  drag: DragState | null;
+  demoMode: boolean;
+  githubPAT: string;
+  patInput: string;
+  gistId: string;
+  gistStatus: GistStatus;
+};
+
+type EntryDraft = Pick<Entry, 'projectId' | 'date' | 'start' | 'end' | 'comment'> & Partial<Pick<Entry, 'id'>>;
+
+type RenderCtx = {
+  S: TempoState;
+  acc: string;
+  hpd: number;
+  showWeekend: boolean;
+  ref: Date;
+  todayISO: string;
+  projById: Record<string, Project>;
+  custById: Record<string, Customer>;
+  entryEarn: (entry: Entry) => number;
+  isTrack: boolean;
+  isProjects: boolean;
+  isCustomers: boolean;
+  isSettings: boolean;
+  isWeek: boolean;
+  isDay: boolean;
+  isMonth: boolean;
+};
+
+function getHoursPerDay(settings: TempoSettings): number {
+  const value = Number(settings.hoursPerDay);
+  return value > 0 ? value : 8;
+}
+
+function minToY(min: number): number {
+  return (min / 60 - START) * ROW + PAD;
+}
+
+function yToMin(clientY: number, rect: DOMRect | null): number {
+  if (!rect) {
+    return START * 60;
+  }
+
+  let raw = ((clientY - rect.top - PAD) / ROW) * 60 + START * 60;
+  raw = Math.max(START * 60, Math.min(END * 60, raw));
+  return Math.round(raw / 15) * 15;
+}
+
+function navStyle(active: boolean, accent: string): CSSProperties {
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '11px',
+    width: '100%',
+    padding: '9px 12px',
+    borderRadius: '9px',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '14px',
+    textAlign: 'left',
+    fontWeight: active ? 600 : 500,
+    background: active ? hexToRgba(accent, 0.1) : 'transparent',
+    color: active ? accent : '#3a3f48',
+  };
+}
+
+function tabStyle(active: boolean): CSSProperties {
+  return {
+    padding: '6px 15px',
+    borderRadius: '7px',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: active ? 600 : 500,
+    background: active ? '#ffffff' : 'transparent',
+    color: active ? '#1a1c20' : '#626873',
+    boxShadow: active ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+  };
+}
+
+function dragOverlay(drag: DragState | null, accent: string): { style: CSSProperties; label: string } | null {
+  if (!drag) {
+    return null;
+  }
+
+  const start = Math.min(drag.a, drag.b);
+  const end = Math.max(drag.a, drag.b);
+  const top = minToY(start);
+  const height = Math.max(10, minToY(end) - minToY(start));
+
+  return {
+    style: {
+      position: 'absolute',
+      left: '4px',
+      right: '4px',
+      top: `${top}px`,
+      height: `${height}px`,
+      background: hexToRgba(accent, 0.85),
+      border: `1px solid ${accent}`,
+      borderRadius: '7px',
+      pointerEvents: 'none',
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'flex-end',
+      padding: '3px 7px',
+    },
+    label: `${fmtMin(start)}–${fmtMin(end)}`,
+  };
+}
+
+function createEmptyData(): PersistedData {
+  return {
+    customers: [],
+    projects: [],
+    entries: [],
+  };
+}
+
+function createStateFromData(data: PersistedData, demoMode: boolean): TempoState {
+  const today = new Date();
+  const githubPAT = store.getPAT();
+
+  return {
+    page: 'track',
+    view: 'week',
+    refISO: iso(today),
+    customers: data.customers,
+    projects: data.projects,
+    entries: data.entries,
+    modal: null,
+    drag: null,
+    demoMode,
+    githubPAT,
+    patInput: githubPAT,
+    gistId: store.getGistId(),
+    gistStatus: 'idle',
+  };
+}
+
+function makeEntry(
+  id: string,
+  date: string,
+  projectId: string,
+  start: number,
+  end: number,
+  comment: string,
+): Entry {
+  return { id, date, projectId, start, end, comment };
+}
+
+function createDemoSeed(): PersistedData {
+  const customers: Customer[] = [
+    { id: 'c1', name: 'Northwind Studio' },
+    { id: 'c2', name: 'Meridian Health' },
+    { id: 'c3', name: 'Atlas Logistics' },
+  ];
+  const projects: Project[] = [
+    { id: 'p1', name: 'Website Redesign', customerId: 'c1', dayRate: 650, color: '#2563eb' },
+    { id: 'p2', name: 'Mobile App', customerId: 'c1', dayRate: 720, color: '#0d9488' },
+    { id: 'p3', name: 'Brand System', customerId: 'c2', dayRate: 800, color: '#7c3aed' },
+    { id: 'p4', name: 'Analytics Dashboard', customerId: 'c2', dayRate: 680, color: '#d97706' },
+    { id: 'p5', name: 'Logistics Portal', customerId: 'c3', dayRate: 600, color: '#db2777' },
+  ];
+
+  const weekStart = startOfWeek(new Date());
+  const dayISO = (offset: number): string => iso(addDays(weekStart, offset));
+
+  return {
+    customers,
+    projects,
+    entries: [
+      makeEntry('e1', dayISO(0), 'p1', 540, 750, 'Wireframe review & IA'),
+      makeEntry('e2', dayISO(0), 'p3', 810, 960, 'Logo exploration'),
+      makeEntry('e3', dayISO(1), 'p2', 510, 660, 'Onboarding flow'),
+      makeEntry('e4', dayISO(1), 'p4', 840, 1050, 'Charts components'),
+      makeEntry('e5', dayISO(2), 'p1', 540, 780, 'Homepage build'),
+      makeEntry('e6', dayISO(2), 'p5', 870, 990, 'API field mapping'),
+      makeEntry('e7', dayISO(3), 'p3', 600, 720, 'Type scale & tokens'),
+      makeEntry('e8', dayISO(3), 'p2', 780, 1020, 'Push notifications'),
+      makeEntry('e9', dayISO(4), 'p1', 570, 720, 'QA & polish'),
+      makeEntry('e10', dayISO(4), 'p4', 780, 930, 'Dashboard polish'),
+    ],
+  };
+}
+
+function loadOrCreateDemoData(): PersistedData {
+  const saved = store.loadDemoData();
+  if (saved) {
+    return saved;
+  }
+
+  const seed = createDemoSeed();
+  store.saveDemoData(seed);
+  return seed;
+}
+
+function getStoreData(demoMode: boolean): PersistedData {
+  if (demoMode) {
+    return loadOrCreateDemoData();
+  }
+
+  return store.loadData() || createEmptyData();
+}
+
+function getSyncStatusMeta(githubPAT: string, gistStatus: GistStatus): { label: string; color: string } {
+  if (!githubPAT) {
+    return { label: 'Saved in browser', color: '#9ca3af' };
+  }
+
+  if (gistStatus === 'syncing') {
+    return { label: 'Syncing…', color: '#9ca3af' };
+  }
+
+  if (gistStatus === 'synced') {
+    return { label: 'Synced to Gist', color: '#16a34a' };
+  }
+
+  if (gistStatus === 'error') {
+    return { label: 'Sync failed', color: '#dc2626' };
+  }
+
+  return { label: 'Gist connected', color: '#9ca3af' };
+}
+
+function createInitialState(): TempoState {
+  const demoMode = store.getDemoModeFlag();
+  return createStateFromData(getStoreData(demoMode), demoMode);
+}
+
+function buildDayEntries(
+  entries: Entry[],
+  projById: Record<string, Project>,
+  dayISO: string,
+  openEntry: (entry: Entry, isNew: boolean) => void,
+): EntryBlockVM[] {
+  return entries
+    .filter((entry) => entry.date === dayISO)
+    .sort((a, b) => a.start - b.start)
+    .map((entry) => {
+      const project = projById[entry.projectId] || { name: '—', color: '#9ca3af' };
+      const top = minToY(entry.start);
+      const height = Math.max(26, minToY(entry.end) - minToY(entry.start));
+
+      return {
+        id: entry.id,
+        projectName: project.name,
+        comment: entry.comment,
+        timeLabel: `${fmtMin(entry.start)}–${fmtMin(entry.end)} · ${fmtH(entry.end - entry.start)}`,
+        style: {
+          position: 'absolute',
+          left: '4px',
+          right: '4px',
+          top: `${top}px`,
+          height: `${height}px`,
+          background: hexToRgba(project.color, 0.11),
+          borderLeft: `3px solid ${project.color}`,
+          borderRadius: '7px',
+          padding: '5px 9px',
+          cursor: 'pointer',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1px',
+          boxSizing: 'border-box',
+          transition: 'box-shadow .12s',
+        },
+        onClick: () => openEntry(entry, false),
+        stop: (event) => event.stopPropagation(),
+      };
+    });
+}
+
+function buildGridShared(): { gridHeight: number; gutterStyle: CSSProperties; hourRows: HourRowVM[] } {
+  const gridHeight = (END - START) * ROW + PAD + 10;
+  const hourRows: HourRowVM[] = [];
+
+  // HourRowVM has no stable id field in the shared contract; consumers should key by array index.
+  for (let hour = START; hour <= END; hour += 1) {
+    hourRows.push({
+      label: fmtMin(hour * 60),
+      style: {
+        position: 'absolute',
+        top: `${minToY(hour * 60)}px`,
+        right: '10px',
+        transform: 'translateY(-50%)',
+        fontSize: '11px',
+        color: '#9ca3af',
+        fontFamily: "'Geist Mono', monospace",
+        whiteSpace: 'nowrap',
+      },
+    });
+  }
+
+  return {
+    gridHeight,
+    gutterStyle: { width: '64px', flexShrink: 0, position: 'relative', height: `${gridHeight}px` },
+    hourRows,
+  };
+}
+
+export function useTempoState(settings: TempoSettings): TempoViewModel {
+  const [state, setState] = useState<TempoState>(createInitialState);
+  const stateRef = useRef(state);
+  const rectRef = useRef<DOMRect | null>(null);
+  const draggingRef = useRef(false);
+  const gistRef = useRef({ pat: state.githubPAT, gistId: state.gistId });
+  const skipNextSyncRef = useRef(false);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    gistRef.current = { pat: state.githubPAT, gistId: state.gistId };
+  }, [state.githubPAT, state.gistId]);
+
+  const openEntry = useCallback((entry: EntryDraft, isNew: boolean) => {
+    setState((current) => ({
+      ...current,
+      modal: {
+        type: 'entry',
+        isNew,
+        form: {
+          id: entry.id || null,
+          projectId: entry.projectId,
+          date: entry.date,
+          start: fmtMin(entry.start),
+          end: fmtMin(entry.end),
+          comment: entry.comment || '',
+        },
+      },
+    }));
+  }, []);
+
+  const openNewEntry = useCallback(() => {
+    const projectId = stateRef.current.projects[0]?.id || '';
+    openEntry({ projectId, date: stateRef.current.refISO, start: 540, end: 600, comment: '' }, true);
+  }, [openEntry]);
+
+  const openProject = useCallback((project: Project | null) => {
+    setState((current) => ({
+      ...current,
+      modal: {
+        type: 'project',
+        isNew: !project,
+        form: project
+          ? {
+              id: project.id,
+              name: project.name,
+              customerId: project.customerId,
+              dayRate: String(project.dayRate),
+              color: project.color,
+            }
+          : {
+              id: null,
+              name: '',
+              customerId: current.customers[0]?.id || '',
+              dayRate: '600',
+              color: '#2563eb',
+            },
+      },
+    }));
+  }, []);
+
+  const openCustomer = useCallback((customer: Customer | null) => {
+    setState((current) => ({
+      ...current,
+      modal: {
+        type: 'customer',
+        isNew: !customer,
+        form: customer ? { id: customer.id, name: customer.name } : { id: null, name: '' },
+      },
+    }));
+  }, []);
+
+  const openSettings = useCallback(() => {
+    setState((current) => ({ ...current, page: 'settings' }));
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setState((current) => ({ ...current, modal: null }));
+  }, []);
+
+  const updateForm = useCallback((key: string, value: string) => {
+    setState((current) => {
+      if (!current.modal) {
+        return current;
+      }
+
+      return {
+        ...current,
+        modal: {
+          ...current.modal,
+          form: {
+            ...current.modal.form,
+            [key]: value,
+          },
+        },
+      };
+    });
+  }, []);
+
+  const syncToGistNow = useCallback(async (patOverride?: string, gistIdOverride?: string) => {
+    const current = stateRef.current;
+    if (current.demoMode) {
+      return;
+    }
+
+    const pat = patOverride ?? gistRef.current.pat;
+    const gistId = gistIdOverride ?? gistRef.current.gistId;
+    if (!pat) {
+      return;
+    }
+
+    setState((snapshot) => ({ ...snapshot, gistStatus: 'syncing' }));
+
+    try {
+      const result = await store.syncToGist(
+        {
+          customers: current.customers,
+          projects: current.projects,
+          entries: current.entries,
+        },
+        pat,
+        gistId,
+      );
+
+      if (!gistId) {
+        store.saveGistId(result.id);
+        setState((snapshot) => ({ ...snapshot, gistId: result.id, gistStatus: 'synced' }));
+      } else {
+        setState((snapshot) => ({ ...snapshot, gistStatus: 'synced' }));
+      }
+    } catch {
+      setState((snapshot) => ({ ...snapshot, gistStatus: 'error' }));
+    }
+  }, []);
+
+  const loadFromGistNow = useCallback(async (pat: string, gistId: string) => {
+    if (!pat || !gistId || stateRef.current.demoMode) {
+      return;
+    }
+
+    setState((snapshot) => ({ ...snapshot, gistStatus: 'syncing' }));
+
+    try {
+      const data = await store.loadFromGist(pat, gistId);
+      setState((snapshot) => ({
+        ...snapshot,
+        customers: data.customers,
+        projects: data.projects,
+        entries: data.entries,
+        gistStatus: 'synced',
+      }));
+    } catch {
+      setState((snapshot) => ({ ...snapshot, gistStatus: 'error' }));
+    }
+  }, []);
+
+  const saveModal = useCallback(() => {
+    const modal = stateRef.current.modal;
+    if (!modal) {
+      return;
+    }
+
+    if (modal.type === 'entry') {
+      const form = modal.form as EntryForm;
+      const start = parseHM(form.start);
+      const end = parseHM(form.end);
+      if (!form.projectId || end <= start) {
+        return;
+      }
+
+      setState((current) => ({
+        ...current,
+        entries: form.id
+          ? current.entries.map((entry) => (
+              entry.id === form.id
+                ? { ...entry, projectId: form.projectId, date: form.date, start, end, comment: form.comment }
+                : entry
+            ))
+          : [
+              ...current.entries,
+              { id: uid(), projectId: form.projectId, date: form.date, start, end, comment: form.comment },
+            ],
+        modal: null,
+      }));
+      return;
+    }
+
+    if (modal.type === 'project') {
+      const form = modal.form as ProjectForm;
+      if (!form.name.trim()) {
+        return;
+      }
+
+      const dayRate = Number.parseFloat(form.dayRate) || 0;
+      setState((current) => ({
+        ...current,
+        projects: form.id
+          ? current.projects.map((project) => (
+              project.id === form.id
+                ? {
+                    ...project,
+                    name: form.name.trim(),
+                    customerId: form.customerId,
+                    dayRate,
+                    color: form.color,
+                  }
+                : project
+            ))
+          : [
+              ...current.projects,
+              {
+                id: uid(),
+                name: form.name.trim(),
+                customerId: form.customerId,
+                dayRate,
+                color: form.color,
+              },
+            ],
+        modal: null,
+      }));
+      return;
+    }
+
+    if (modal.type === 'customer') {
+      const form = modal.form as CustomerForm;
+      if (!form.name.trim()) {
+        return;
+      }
+
+      setState((current) => ({
+        ...current,
+        customers: form.id
+          ? current.customers.map((customer) => (
+              customer.id === form.id ? { ...customer, name: form.name.trim() } : customer
+            ))
+          : [...current.customers, { id: uid(), name: form.name.trim() }],
+        modal: null,
+      }));
+      return;
+    }
+
+  }, []);
+
+  const deleteModal = useCallback(() => {
+    const modal = stateRef.current.modal;
+    if (!modal || modal.isNew) {
+      return;
+    }
+
+    if (modal.type === 'entry') {
+      const id = (modal.form as EntryForm).id;
+      if (!id) {
+        return;
+      }
+
+      setState((current) => ({
+        ...current,
+        entries: current.entries.filter((entry) => entry.id !== id),
+        modal: null,
+      }));
+      return;
+    }
+
+    if (modal.type === 'project') {
+      const id = (modal.form as ProjectForm).id;
+      if (!id) {
+        return;
+      }
+
+      setState((current) => ({
+        ...current,
+        projects: current.projects.filter((project) => project.id !== id),
+        entries: current.entries.filter((entry) => entry.projectId !== id),
+        modal: null,
+      }));
+      return;
+    }
+
+    const id = (modal.form as CustomerForm).id;
+    if (!id) {
+      return;
+    }
+
+    setState((current) => {
+      const projectIds = current.projects.filter((project) => project.customerId === id).map((project) => project.id);
+      return {
+        ...current,
+        customers: current.customers.filter((customer) => customer.id !== id),
+        projects: current.projects.filter((project) => project.customerId !== id),
+        entries: current.entries.filter((entry) => !projectIds.includes(entry.projectId)),
+        modal: null,
+      };
+    });
+  }, []);
+
+  const disconnectGist = useCallback(() => {
+    store.removePAT();
+    store.removeGistId();
+    setState((current) => ({ ...current, githubPAT: '', patInput: '', gistId: '', gistStatus: 'idle' }));
+  }, []);
+
+  const resetData = useCallback(() => {
+    if (!window.confirm('Delete all data? This cannot be undone.')) {
+      return;
+    }
+
+    skipNextSyncRef.current = true;
+    setState((current) => {
+      if (current.demoMode) {
+        store.clearDemoData();
+        const demoData = createDemoSeed();
+        store.saveDemoData(demoData);
+        return {
+          ...current,
+          customers: demoData.customers,
+          projects: demoData.projects,
+          entries: demoData.entries,
+          modal: null,
+          drag: null,
+          gistStatus: 'idle',
+        };
+      }
+
+      store.clearData();
+      const emptyData = createEmptyData();
+      return {
+        ...current,
+        customers: emptyData.customers,
+        projects: emptyData.projects,
+        entries: emptyData.entries,
+        modal: null,
+        drag: null,
+        gistStatus: 'idle',
+      };
+    });
+  }, []);
+
+  const onToggleDemoMode = useCallback(() => {
+    setState((current) => {
+      const nextDemoMode = !current.demoMode;
+      const data = getStoreData(nextDemoMode);
+      store.setDemoModeFlag(nextDemoMode);
+
+      return {
+        ...current,
+        customers: data.customers,
+        projects: data.projects,
+        entries: data.entries,
+        demoMode: nextDemoMode,
+        modal: null,
+        drag: null,
+        gistStatus: 'idle',
+      };
+    });
+  }, []);
+
+  const setPage = useCallback((page: Page) => {
+    setState((current) => ({ ...current, page }));
+  }, []);
+
+  const setView = useCallback((view: View) => {
+    setState((current) => ({ ...current, view }));
+  }, []);
+
+  const setRefISO = useCallback((refISO: string) => {
+    setState((current) => ({ ...current, refISO }));
+  }, []);
+
+  const onColMouseDown = useCallback((dayISO: string, event: MouseEvent<Element>) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    rectRef.current = event.currentTarget.getBoundingClientRect();
+    const minutes = yToMin(event.clientY, rectRef.current);
+    draggingRef.current = true;
+    setState((current) => ({ ...current, drag: { iso: dayISO, a: minutes, b: minutes } }));
+  }, []);
+
+  useEffect(() => {
+    const handleMove = (event: globalThis.MouseEvent): void => {
+      if (!draggingRef.current) {
+        return;
+      }
+
+      const minutes = yToMin(event.clientY, rectRef.current);
+      setState((current) => (
+        current.drag ? { ...current, drag: { ...current.drag, b: minutes } } : current
+      ));
+    };
+
+    const handleUp = (): void => {
+      if (!draggingRef.current) {
+        return;
+      }
+
+      draggingRef.current = false;
+      const drag = stateRef.current.drag;
+      setState((current) => ({ ...current, drag: null }));
+      if (!drag) {
+        return;
+      }
+
+      let start = Math.min(drag.a, drag.b);
+      let end = Math.max(drag.a, drag.b);
+      if (end - start < 15) {
+        end = start + 60;
+        if (end > END * 60) {
+          end = END * 60;
+          start = end - 60;
+        }
+      }
+
+      const projectId = stateRef.current.projects[0]?.id || '';
+      openEntry({ projectId, date: drag.iso, start, end, comment: '' }, true);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [openEntry]);
+
+  useEffect(() => {
+    const data = {
+      customers: state.customers,
+      projects: state.projects,
+      entries: state.entries,
+    };
+
+    if (state.demoMode) {
+      store.saveDemoData(data);
+      return;
+    }
+
+    store.saveData(data);
+  }, [state.customers, state.demoMode, state.entries, state.projects]);
+
+  useEffect(() => {
+    if (!state.demoMode && state.githubPAT && state.gistId) {
+      void loadFromGistNow(state.githubPAT, state.gistId);
+    }
+  }, [loadFromGistNow, state.demoMode, state.githubPAT, state.gistId]);
+
+  useEffect(() => {
+    if (state.demoMode || !state.githubPAT) {
+      return undefined;
+    }
+
+    if (skipNextSyncRef.current) {
+      skipNextSyncRef.current = false;
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      void syncToGistNow();
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [state.customers, state.demoMode, state.entries, state.githubPAT, state.projects, syncToGistNow]);
+
+  const hpd = getHoursPerDay(settings);
+  const ref = parseISO(state.refISO);
+  const todayISO = iso(new Date());
+
+  const projById = useMemo<Record<string, Project>>(() => {
+    const next: Record<string, Project> = {};
+    state.projects.forEach((project) => {
+      next[project.id] = project;
+    });
+    return next;
+  }, [state.projects]);
+
+  const custById = useMemo<Record<string, Customer>>(() => {
+    const next: Record<string, Customer> = {};
+    state.customers.forEach((customer) => {
+      next[customer.id] = customer;
+    });
+    return next;
+  }, [state.customers]);
+
+  const entryEarn = useCallback((entry: Entry) => {
+    const project = projById[entry.projectId];
+    return project ? (((entry.end - entry.start) / 60) / hpd) * project.dayRate : 0;
+  }, [hpd, projById]);
+
+  const ctx: RenderCtx = {
+    S: state,
+    acc: settings.accentColor || '#2563eb',
+    hpd,
+    showWeekend: settings.showWeekend,
+    ref,
+    todayISO,
+    projById,
+    custById,
+    entryEarn,
+    isTrack: state.page === 'track',
+    isProjects: state.page === 'projects',
+    isCustomers: state.page === 'customers',
+    isSettings: state.page === 'settings',
+    isWeek: state.view === 'week',
+    isDay: state.view === 'day',
+    isMonth: state.view === 'month',
+  };
+
+  const sidebarProps = useMemo<SidebarProps>(() => {
+    const weekStart = startOfWeek(ctx.ref);
+    const dayCount = ctx.showWeekend ? 7 : 5;
+    const weekISOs = new Set<string>();
+    for (let day = 0; day < dayCount; day += 1) {
+      weekISOs.add(iso(addDays(weekStart, day)));
+    }
+
+    const weekEntries = ctx.S.entries.filter((entry) => weekISOs.has(entry.date));
+    const weekMinutes = weekEntries.reduce((sum, entry) => sum + (entry.end - entry.start), 0);
+    const weekEarn = weekEntries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
+
+    const { label: syncLabel, color: syncColor } = getSyncStatusMeta(ctx.S.githubPAT, ctx.S.gistStatus);
+
+    return {
+      logoStyle: {
+        width: '27px',
+        height: '27px',
+        borderRadius: '8px',
+        background: ctx.acc,
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 600,
+        fontSize: '15px',
+        flexShrink: 0,
+      },
+      navTrackStyle: navStyle(ctx.isTrack, ctx.acc),
+      navProjectsStyle: navStyle(ctx.isProjects, ctx.acc),
+      navCustomersStyle: navStyle(ctx.isCustomers, ctx.acc),
+      onNavTrack: () => setPage('track'),
+      onNavProjects: () => setPage('projects'),
+      onNavCustomers: () => setPage('customers'),
+      weekHours: fmtH(weekMinutes),
+      weekDaysStr: (weekMinutes / 60 / ctx.hpd).toFixed(1),
+      weekEarnStr: fmtEUR(weekEarn),
+      syncColor,
+      syncLabel,
+      onOpenSettings: openSettings,
+    };
+  }, [ctx, openSettings, setPage]);
+
+  const headerProps = useMemo<AppHeaderProps>(() => {
+    const weekStart = startOfWeek(ctx.ref);
+    const weekEnd = addDays(weekStart, 6);
+    const weekRange = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${weekEnd.getFullYear()}`;
+    const monthLabel = ctx.ref.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const dayFull = ctx.ref.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const todayRef = parseISO(ctx.todayISO);
+    const now = new Date();
+    const diffDays = Math.round((ctx.ref.getTime() - todayRef.getTime()) / 86400000);
+    const diffWeeks = Math.round((weekStart.getTime() - startOfWeek(new Date()).getTime()) / (7 * 86400000));
+    const diffMonths = (ctx.ref.getFullYear() - now.getFullYear()) * 12 + (ctx.ref.getMonth() - now.getMonth());
+
+    const relDay = diffDays === 0
+      ? 'Today'
+      : diffDays === -1
+        ? 'Yesterday'
+        : diffDays === 1
+          ? 'Tomorrow'
+          : diffDays < 0
+            ? `${Math.abs(diffDays)} days ago`
+            : `${diffDays} days from now`;
+    const relWeek = diffWeeks === 0
+      ? 'This week'
+      : diffWeeks === -1
+        ? 'Last week'
+        : diffWeeks === 1
+          ? 'Next week'
+          : diffWeeks < 0
+            ? `${Math.abs(diffWeeks)} weeks ago`
+            : `${diffWeeks} weeks from now`;
+    const relMonth = diffMonths === 0
+      ? 'This month'
+      : diffMonths === -1
+        ? 'Last month'
+        : diffMonths === 1
+          ? 'Next month'
+          : diffMonths < 0
+            ? `${Math.abs(diffMonths)} months ago`
+            : `${diffMonths} months from now`;
+
+    const dayEntries = ctx.S.entries.filter((entry) => entry.date === ctx.S.refISO);
+    const dayMinutes = dayEntries.reduce((sum, entry) => sum + (entry.end - entry.start), 0);
+    const dayEarn = dayEntries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
+
+    const dayCount = ctx.showWeekend ? 7 : 5;
+    const weekISOs = new Set<string>();
+    for (let day = 0; day < dayCount; day += 1) {
+      weekISOs.add(iso(addDays(weekStart, day)));
+    }
+    const weekEntries = ctx.S.entries.filter((entry) => weekISOs.has(entry.date));
+    const weekMinutes = weekEntries.reduce((sum, entry) => sum + (entry.end - entry.start), 0);
+    const weekEarn = weekEntries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
+
+    const monthEntries = ctx.S.entries.filter((entry) => {
+      const date = parseISO(entry.date);
+      return date.getFullYear() === ctx.ref.getFullYear() && date.getMonth() === ctx.ref.getMonth();
+    });
+    const monthMinutes = monthEntries.reduce((sum, entry) => sum + (entry.end - entry.start), 0);
+    const monthEarn = monthEntries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
+
+    let headerTitle = 'Today';
+    let headerSubtitle = '';
+    if (ctx.isTrack) {
+      if (ctx.isDay) {
+        headerTitle = relDay;
+        headerSubtitle = `${dayFull}${dayMinutes > 0 ? ` · ${fmtH(dayMinutes)} · ${fmtEUR(dayEarn)}` : ''}`;
+      } else if (ctx.isWeek) {
+        headerTitle = relWeek;
+        headerSubtitle = `${weekRange}${weekMinutes > 0 ? ` · ${fmtH(weekMinutes)} · ${fmtEUR(weekEarn)}` : ''}`;
+      } else {
+        headerTitle = relMonth;
+        headerSubtitle = `${monthLabel}${monthMinutes > 0 ? ` · ${fmtH(monthMinutes)} · ${fmtEUR(monthEarn)}` : ''}`;
+      }
+    } else if (ctx.isProjects) {
+      headerTitle = 'Projects';
+      headerSubtitle = `${ctx.S.projects.length} active`;
+    } else if (ctx.isSettings) {
+      headerTitle = 'Settings';
+      headerSubtitle = 'Demo mode, GitHub sync and data controls';
+    } else {
+      headerTitle = 'Customers';
+      headerSubtitle = `${ctx.S.customers.length} total`;
+    }
+
+    return {
+      headerTitle,
+      headerSubtitle,
+      isTrack: ctx.isTrack,
+      isProjects: ctx.isProjects,
+      isCustomers: ctx.isCustomers,
+      tabDayStyle: tabStyle(ctx.isDay),
+      tabWeekStyle: tabStyle(ctx.isWeek),
+      tabMonthStyle: tabStyle(ctx.isMonth),
+      onTabDay: () => setView('day'),
+      onTabWeek: () => setView('week'),
+      onTabMonth: () => setView('month'),
+      onPrev: () => {
+        const date = parseISO(ctx.S.refISO);
+        const next = ctx.S.view === 'week'
+          ? addDays(date, -7)
+          : ctx.S.view === 'day'
+            ? addDays(date, -1)
+            : addMonths(date, -1);
+        setRefISO(iso(next));
+      },
+      onToday: () => setRefISO(ctx.todayISO),
+      onNext: () => {
+        const date = parseISO(ctx.S.refISO);
+        const next = ctx.S.view === 'week'
+          ? addDays(date, 7)
+          : ctx.S.view === 'day'
+            ? addDays(date, 1)
+            : addMonths(date, 1);
+        setRefISO(iso(next));
+      },
+      btnPrimary: {
+        height: '34px',
+        padding: '0 15px',
+        border: 'none',
+        background: ctx.acc,
+        color: '#fff',
+        borderRadius: '9px',
+        cursor: 'pointer',
+        fontSize: '13.5px',
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+      },
+      onNewEntry: openNewEntry,
+      onNewProject: () => openProject(null),
+      onNewCustomer: () => openCustomer(null),
+    };
+  }, [ctx, openCustomer, openNewEntry, openProject, setRefISO, setView]);
+
+  const onPatChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setState((current) => ({ ...current, patInput: value }));
+  }, []);
+
+  const settingsProps = useMemo<SettingsViewProps | null>(() => {
+    if (!ctx.isSettings) {
+      return null;
+    }
+
+    const { label: gistStatusLabel, color: gistStatusColor } = getSyncStatusMeta(ctx.S.githubPAT, ctx.S.gistStatus);
+
+    return {
+      onBack: () => setPage('track'),
+      demoMode: ctx.S.demoMode,
+      onToggleDemoMode,
+      demoModeHint: 'Preview Tempo with example projects, customers and time entries. Your real data stays untouched and you can switch back anytime.',
+      syncDisabled: ctx.S.demoMode,
+      patValue: ctx.S.patInput,
+      onPatChange,
+      gistIdLabel: ctx.S.gistId ? `${ctx.S.gistId.slice(0, 8)}…` : 'Not yet created',
+      gistConnected: Boolean(ctx.S.githubPAT),
+      gistStatusLabel,
+      gistStatusColor,
+      onConnect: () => {
+        const pat = ctx.S.patInput.trim();
+        if (pat) {
+          store.savePAT(pat);
+        } else {
+          store.removePAT();
+          store.removeGistId();
+        }
+
+        const nextGistId = pat ? ctx.S.gistId : '';
+        setState((current) => ({
+          ...current,
+          githubPAT: pat,
+          patInput: pat,
+          gistId: nextGistId,
+          gistStatus: 'idle',
+        }));
+
+        if (pat) {
+          void syncToGistNow(pat, ctx.S.gistId);
+        }
+      },
+      onSyncNow: () => {
+        void syncToGistNow();
+      },
+      onRestoreFromGist: () => {
+        if (ctx.S.githubPAT && ctx.S.gistId) {
+          void loadFromGistNow(ctx.S.githubPAT, ctx.S.gistId);
+        }
+      },
+      onDisconnect: disconnectGist,
+      onDeleteAll: resetData,
+    };
+  }, [ctx, disconnectGist, loadFromGistNow, onPatChange, onToggleDemoMode, resetData, setPage, syncToGistNow]);
+
+  const weekProps = useMemo<WeekViewProps | null>(() => {
+    if (!(ctx.isTrack && ctx.isWeek)) {
+      return null;
+    }
+
+    const { gutterStyle, hourRows, gridHeight } = buildGridShared();
+    const weekStart = startOfWeek(ctx.ref);
+    const dayCount = ctx.showWeekend ? 7 : 5;
+    const dowLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const colBase = (dayISO: string): CSSProperties => ({
+      flex: '1',
+      position: 'relative',
+      height: `${gridHeight}px`,
+      borderLeft: '1px solid #f0f1f4',
+      cursor: 'crosshair',
+      backgroundColor: dayISO === ctx.todayISO ? '#fafbff' : 'transparent',
+      backgroundImage: `repeating-linear-gradient(to bottom, #eef0f3 0, #eef0f3 1px, transparent 1px, transparent ${ROW}px)`,
+      backgroundPosition: `0 ${PAD}px`,
+    });
+
+    const weekDays: WeekDayVM[] = [];
+    for (let index = 0; index < dayCount; index += 1) {
+      const date = addDays(weekStart, index);
+      const dayISO = iso(date);
+      const isToday = dayISO === ctx.todayISO;
+      const overlay = dragOverlay(ctx.S.drag && ctx.S.drag.iso === dayISO ? ctx.S.drag : null, ctx.acc);
+
+      weekDays.push({
+        iso: dayISO,
+        dow: dowLabels[index],
+        dayNum: date.getDate(),
+        numStyle: isToday
+          ? {
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '29px',
+              height: '29px',
+              borderRadius: '50%',
+              background: ctx.acc,
+              color: '#fff',
+              fontSize: '15px',
+              fontWeight: 600,
+            }
+          : { fontSize: '17px', fontWeight: 600, color: '#1a1c20', lineHeight: '29px' },
+        colStyle: colBase(dayISO),
+        entries: buildDayEntries(ctx.S.entries, ctx.projById, dayISO, openEntry as (entry: Entry, isNew: boolean) => void),
+        drag: overlay ? overlay.style : null,
+        dragLabel: overlay ? overlay.label : '',
+        onMouseDown: (event) => onColMouseDown(dayISO, event),
+        onHeaderClick: () => setState((current) => ({ ...current, view: 'day', refISO: dayISO })),
+      });
+    }
+
+    return { weekDays, gutterStyle, hourRows };
+  }, [ctx, onColMouseDown, openEntry]);
+
+  const dayProps = useMemo<DayViewProps | null>(() => {
+    if (!(ctx.isTrack && ctx.isDay)) {
+      return null;
+    }
+
+    const { gutterStyle, hourRows, gridHeight } = buildGridShared();
+    const dayISO = ctx.S.refISO;
+    const overlay = dragOverlay(ctx.S.drag && ctx.S.drag.iso === dayISO ? ctx.S.drag : null, ctx.acc);
+    const dayEntries = ctx.S.entries.filter((entry) => entry.date === dayISO).sort((a, b) => a.start - b.start);
+    const dayMinutes = dayEntries.reduce((sum, entry) => sum + (entry.end - entry.start), 0);
+    const dayEarn = dayEntries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
+
+    const list: DayListRowVM[] = dayEntries.map((entry) => {
+      const project = ctx.projById[entry.projectId] || { name: '—', color: '#9ca3af' };
+      return {
+        id: entry.id,
+        projectName: project.name,
+        comment: entry.comment,
+        timeLabel: `${fmtMin(entry.start)}–${fmtMin(entry.end)} · ${fmtH(entry.end - entry.start)}`,
+        dotStyle: {
+          width: '10px',
+          height: '10px',
+          borderRadius: '3px',
+          background: project.color,
+          flexShrink: 0,
+          marginTop: '4px',
+        },
+        onClick: () => openEntry(entry, false),
+      };
+    });
+
+    return {
+      dayData: {
+        colStyle: {
+          flex: '1',
+          position: 'relative',
+          height: `${gridHeight}px`,
+          cursor: 'crosshair',
+          backgroundImage: `repeating-linear-gradient(to bottom, #eef0f3 0, #eef0f3 1px, transparent 1px, transparent ${ROW}px)`,
+          backgroundPosition: `0 ${PAD}px`,
+        },
+        entries: buildDayEntries(ctx.S.entries, ctx.projById, dayISO, openEntry as (entry: Entry, isNew: boolean) => void),
+        drag: overlay ? overlay.style : null,
+        dragLabel: overlay ? overlay.label : '',
+        onMouseDown: (event) => onColMouseDown(dayISO, event),
+        totalH: fmtH(dayMinutes),
+        totalDays: (dayMinutes / 60 / ctx.hpd).toFixed(1),
+        totalEarn: fmtEUR(dayEarn),
+        empty: dayEntries.length === 0,
+        list,
+      },
+      gutterStyle,
+      hourRows,
+      accent: ctx.acc,
+    };
+  }, [ctx, onColMouseDown, openEntry]);
+
+  const monthProps = useMemo<MonthViewProps | null>(() => {
+    if (!(ctx.isTrack && ctx.isMonth)) {
+      return null;
+    }
+
+    const first = new Date(ctx.ref.getFullYear(), ctx.ref.getMonth(), 1, 12);
+    const monthStart = startOfWeek(first);
+    const monthWeeks = [];
+
+    for (let week = 0; week < 6; week += 1) {
+      const days: MonthCellVM[] = [];
+      for (let day = 0; day < 7; day += 1) {
+        const date = addDays(monthStart, week * 7 + day);
+        const dayISO = iso(date);
+        const inMonth = date.getMonth() === ctx.ref.getMonth();
+        const isToday = dayISO === ctx.todayISO;
+        const entries = ctx.S.entries.filter((entry) => entry.date === dayISO);
+        const minutes = entries.reduce((sum, entry) => sum + (entry.end - entry.start), 0);
+        const earn = entries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
+        const colors: string[] = [];
+
+        entries.forEach((entry) => {
+          const color = ctx.projById[entry.projectId]?.color;
+          if (color && !colors.includes(color)) {
+            colors.push(color);
+          }
+        });
+
+        days.push({
+          dayNum: date.getDate(),
+          style: {
+            flex: '1',
+            minWidth: 0,
+            height: '112px',
+            padding: '8px 9px',
+            borderLeft: '1px solid #f4f5f7',
+            cursor: 'pointer',
+            background: inMonth ? '#fff' : '#fafbfc',
+            display: 'flex',
+            flexDirection: 'column',
+            boxSizing: 'border-box',
+          },
+          numStyle: isToday
+            ? {
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: ctx.acc,
+                color: '#fff',
+                fontSize: '12.5px',
+                fontWeight: 600,
+              }
+            : { fontSize: '13px', fontWeight: 500, color: inMonth ? '#3a3f48' : '#c4c8ce', lineHeight: '24px' },
+          hasEntries: minutes > 0,
+          hours: fmtH(minutes),
+          earn: fmtEUR(earn),
+          dots: colors.slice(0, 4).map((color) => ({ style: { width: '6px', height: '6px', borderRadius: '50%', background: color } })),
+          onClick: () => setState((current) => ({ ...current, view: 'day', refISO: dayISO })),
+        });
+      }
+
+      monthWeeks.push({ days });
+    }
+
+    return { monthWeeks, monthDowLabels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] };
+  }, [ctx]);
+
+  const projectsProps = useMemo<ProjectsViewProps | null>(() => {
+    if (!ctx.isProjects) {
+      return null;
+    }
+
+    const projRows = ctx.S.projects.map((project) => {
+      const entries = ctx.S.entries.filter((entry) => entry.projectId === project.id);
+      const minutes = entries.reduce((sum, entry) => sum + (entry.end - entry.start), 0);
+      const earn = ((minutes / 60) / ctx.hpd) * project.dayRate;
+      return {
+        id: project.id,
+        name: project.name,
+        customerName: ctx.custById[project.customerId]?.name || '—',
+        dayRate: fmtEUR(project.dayRate),
+        hours: fmtH(minutes),
+        earn: fmtEUR(earn),
+        dotStyle: { width: '12px', height: '12px', borderRadius: '4px', background: project.color, flexShrink: 0 },
+        onClick: () => openProject(project),
+      };
+    });
+
+    return { projRows, projEmpty: projRows.length === 0 };
+  }, [ctx, openProject]);
+
+  const customersProps = useMemo<CustomersViewProps | null>(() => {
+    if (!ctx.isCustomers) {
+      return null;
+    }
+
+    const custRows = ctx.S.customers.map((customer) => {
+      const projects = ctx.S.projects.filter((project) => project.customerId === customer.id);
+      const projectIds = projects.map((project) => project.id);
+      const entries = ctx.S.entries.filter((entry) => projectIds.includes(entry.projectId));
+      const minutes = entries.reduce((sum, entry) => sum + (entry.end - entry.start), 0);
+      const earn = entries.reduce((sum, entry) => sum + ctx.entryEarn(entry), 0);
+      return {
+        id: customer.id,
+        name: customer.name,
+        initials: (customer.name || '?').trim().slice(0, 1).toUpperCase(),
+        projectLabel: `${projects.length}${projects.length === 1 ? ' project' : ' projects'}`,
+        hours: fmtH(minutes),
+        earn: fmtEUR(earn),
+        avatarStyle: {
+          width: '40px',
+          height: '40px',
+          borderRadius: '11px',
+          background: hexToRgba(ctx.acc, 0.12),
+          color: ctx.acc,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '16px',
+          fontWeight: 600,
+          flexShrink: 0,
+        },
+        onClick: () => openCustomer(customer),
+      };
+    });
+
+    return { custRows, custEmpty: custRows.length === 0 };
+  }, [ctx, openCustomer]);
+
+  const modalProps = useMemo<ModalProps | null>(() => {
+    const modal = ctx.S.modal;
+    if (!modal) {
+      return null;
+    }
+
+    const isEntryModal = modal.type === 'entry';
+    const isProjectModal = modal.type === 'project';
+    const isCustomerModal = modal.type === 'customer';
+    const canDelete = !modal.isNew;
+
+    const modalTitle = modal.type === 'entry'
+      ? (modal.isNew ? 'Log hours' : 'Edit entry')
+      : modal.type === 'project'
+        ? (modal.isNew ? 'New project' : 'Edit project')
+        : (modal.isNew ? 'New customer' : 'Edit customer');
+    const saveLabel = modal.isNew ? 'Add' : 'Save';
+
+    const palette = ['#2563eb', '#0d9488', '#7c3aed', '#d97706', '#db2777', '#65a30d', '#0891b2', '#dc2626'];
+    const colorSwatches = isProjectModal
+      ? palette.map((color) => ({
+          color,
+          style: {
+            width: '30px',
+            height: '30px',
+            borderRadius: '9px',
+            background: color,
+            cursor: 'pointer',
+            padding: 0,
+            border: (modal.form as ProjectForm).color === color ? '2px solid #fff' : '2px solid transparent',
+            boxShadow: (modal.form as ProjectForm).color === color ? `0 0 0 2px ${color}` : 'none',
+          },
+          onClick: () => updateForm('color', color),
+        }))
+      : [];
+
+    const inputStyle: CSSProperties = {
+      width: '100%',
+      padding: '10px 12px',
+      border: '1px solid #d7dadf',
+      borderRadius: '9px',
+      fontSize: '14px',
+      color: '#1a1c20',
+      background: '#fff',
+      outline: 'none',
+    };
+
+    return {
+      modalTitle,
+      saveLabel,
+      isEntryModal,
+      isProjectModal,
+      isCustomerModal,
+      canDelete,
+      form: modal.form,
+      projOpts: ctx.S.projects.map((project) => ({
+        id: project.id,
+        name: `${project.name}  ·  ${ctx.custById[project.customerId]?.name || '—'}`,
+      })),
+      custOpts: ctx.S.customers.map((customer) => ({ id: customer.id, name: customer.name })),
+      colorSwatches,
+      inputStyle,
+      textareaStyle: { ...inputStyle, resize: 'vertical', lineHeight: 1.4 },
+      labelStyle: { display: 'block', fontSize: '12px', fontWeight: 500, color: '#626873', marginBottom: '6px' },
+      btnPrimaryLg: {
+        height: '38px',
+        padding: '0 20px',
+        border: 'none',
+        background: ctx.acc,
+        color: '#fff',
+        borderRadius: '9px',
+        cursor: 'pointer',
+        fontSize: '13.5px',
+        fontWeight: 600,
+      },
+      onFormProject: (event: ChangeEvent<HTMLSelectElement>) => updateForm('projectId', event.target.value),
+      onFormDate: (event: ChangeEvent<HTMLInputElement>) => updateForm('date', event.target.value),
+      onFormStart: (event: ChangeEvent<HTMLInputElement>) => updateForm('start', event.target.value),
+      onFormEnd: (event: ChangeEvent<HTMLInputElement>) => updateForm('end', event.target.value),
+      onFormComment: (event: ChangeEvent<HTMLTextAreaElement>) => updateForm('comment', event.target.value),
+      onFormName: (event: ChangeEvent<HTMLInputElement>) => updateForm('name', event.target.value),
+      onFormCustomer: (event: ChangeEvent<HTMLSelectElement>) => updateForm('customerId', event.target.value),
+      onFormRate: (event: ChangeEvent<HTMLInputElement>) => updateForm('dayRate', event.target.value),
+      onSave: saveModal,
+      onCancel: closeModal,
+      onDelete: deleteModal,
+      stopOverlay: (event: MouseEvent) => event.stopPropagation(),
+    };
+  }, [closeModal, ctx, deleteModal, saveModal, updateForm]);
+
+  return {
+    showWeek: ctx.isTrack && ctx.isWeek,
+    showDay: ctx.isTrack && ctx.isDay,
+    showMonth: ctx.isTrack && ctx.isMonth,
+    showProjects: ctx.isProjects,
+    showCustomers: ctx.isCustomers,
+    showSettings: ctx.isSettings,
+    modalOpen: Boolean(ctx.S.modal),
+    sidebarProps,
+    headerProps,
+    weekProps,
+    dayProps,
+    monthProps,
+    projectsProps,
+    customersProps,
+    settingsProps,
+    modalProps,
+  };
+}
