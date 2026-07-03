@@ -292,6 +292,10 @@ function getStoreData(demoMode: boolean): PersistedData {
 }
 
 function getSyncStatusMeta(demoMode: boolean, syncStatus: SyncStatus): { label: string; color: string } {
+  if (DEV_MODE && demoMode) {
+    return { label: 'Local (demo mode)', color: '#9ca3af' };
+  }
+
   if (DEV_MODE) {
     return { label: 'Local (dev mode)', color: '#9ca3af' };
   }
