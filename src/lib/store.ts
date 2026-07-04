@@ -178,6 +178,46 @@ export async function fetchState(): Promise<RemoteState> {
   return { data: normalizePersistedData(parsed), etag };
 }
 
+export interface YearState {
+  entries: Entry[];
+  etag: string;
+}
+
+export async function fetchEntriesYear(year: number): Promise<YearState> {
+  const response = await fetch(`/api/state?year=${year}`, { headers: { Accept: 'application/json' } });
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+  const etag = response.headers.get('etag') ?? '';
+  const parsed: unknown = await response.json();
+  if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as { entries?: unknown }).entries)) {
+    throw new Error(`Invalid year entries format returned from server for year ${year}.`);
+  }
+  const entries = ((parsed as { entries: unknown[] }).entries).map((e) => normalizeEntry(e as Entry));
+  return { entries, etag };
+}
+
+export async function saveEntriesYear(year: number, entries: Entry[], etag: string): Promise<{ etag: string }> {
+  const response = await fetch(`/api/state?year=${year}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(etag ? { 'If-Match': etag } : {}),
+    },
+    body: JSON.stringify({ entries }),
+  });
+
+  if (response.status === 412) {
+    throw new ConflictError();
+  }
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+
+  return { etag: response.headers.get('etag') ?? '' };
+}
+
 export async function saveState(data: PersistedData, etag: string): Promise<{ etag: string }> {
   const response = await fetch('/api/state', {
     method: 'PUT',

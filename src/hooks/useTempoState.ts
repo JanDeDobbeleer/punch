@@ -79,6 +79,11 @@ type TempoState = PersistedData & {
   demoMode: boolean;
   syncStatus: SyncStatus;
   stateEtag: string;
+  // Per-year tracking for lazy-loaded past years.
+  // `loadedYears` lists every year whose entries are present in `entries`.
+  // `yearEtags` holds the blob ETag for each loaded year != currentYear.
+  loadedYears: number[];
+  yearEtags: Record<number, string>;
   attachmentUploading: boolean;
   attachmentError: string;
   userDisplayName: string;
@@ -163,6 +168,7 @@ function createEmptyData(): PersistedData {
 
 function createStateFromData(data: PersistedData, demoMode: boolean): TempoState {
   const today = new Date();
+  const currentYear = today.getFullYear();
 
   return {
     page: 'track',
@@ -175,6 +181,8 @@ function createStateFromData(data: PersistedData, demoMode: boolean): TempoState
     demoMode,
     syncStatus: 'idle',
     stateEtag: '',
+    loadedYears: [currentYear],
+    yearEtags: {},
     attachmentUploading: false,
     attachmentError: '',
     userDisplayName: '',
@@ -290,7 +298,15 @@ function getStoreData(demoMode: boolean): PersistedData {
     return loadOrCreateDemoData();
   }
 
-  return store.loadData() || createEmptyData();
+  const data = store.loadData() || createEmptyData();
+  // Filter to current year only. The localStorage cache may contain entries from
+  // multiple years (pre-split), but the hook only loads the current year on startup;
+  // past years are fetched lazily when the user navigates to them.
+  const currentYear = new Date().getFullYear();
+  return {
+    ...data,
+    entries: data.entries.filter((e) => new Date(e.date).getFullYear() === currentYear),
+  };
 }
 
 function getSyncStatusMeta(demoMode: boolean, syncStatus: SyncStatus): { label: string; color: string } {
@@ -335,6 +351,8 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
   const stateRef = useRef(state);
   const settingsRef = useRef(settings);
   const skipNextPushRef = useRef(false);
+  // Tracks which years are currently being fetched to prevent duplicate in-flight requests.
+  const yearsLoadingRef = useRef<Set<number>>(new Set());
   // The Track calendar's displayed month. `null` means "the month containing
   // today"; its own prev/next month/year controls move it independently.
   const [calendarAnchorISO, setCalendarAnchorISO] = useState<string | null>(null);
@@ -796,31 +814,69 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       return;
     }
 
+    // Split entries by year: current year goes to tempo.json (with config),
+    // each other loaded year goes to its own tempo.YYYY.json blob.
+    const currentYear = new Date().getFullYear();
+    const entriesByYear = new Map<number, Entry[]>();
+    for (const entry of current.entries) {
+      const year = new Date(entry.date).getFullYear();
+      if (!entriesByYear.has(year)) entriesByYear.set(year, []);
+      entriesByYear.get(year)!.push(entry);
+    }
+
+    const currentYearEntries = entriesByYear.get(currentYear) ?? [];
     const data: PersistedData = {
       customers: current.customers,
       projects: current.projects,
       services: current.services,
-      entries: current.entries,
+      entries: currentYearEntries,
     };
 
     setState((snapshot) => ({ ...snapshot, syncStatus: 'syncing' }));
 
     try {
       const result = await store.saveState(data, stateRef.current.stateEtag);
-      setState((snapshot) => ({ ...snapshot, stateEtag: result.etag, syncStatus: 'synced' }));
+      const newYearEtags = { ...stateRef.current.yearEtags };
+
+      // Save all loaded past years whose entries are in memory.
+      for (const [year, entries] of entriesByYear) {
+        if (year === currentYear) continue;
+        if (!stateRef.current.loadedYears.includes(year)) continue;
+        try {
+          const yearResult = await store.saveEntriesYear(year, entries, stateRef.current.yearEtags[year] ?? '');
+          newYearEtags[year] = yearResult.etag;
+        } catch (yearError) {
+          if (yearError instanceof store.ConflictError) {
+            // Another tab wrote this year blob — reload to get the new ETag.
+            try {
+              const remote = await store.fetchEntriesYear(year);
+              newYearEtags[year] = remote.etag;
+            } catch {
+              // Non-fatal: the year blob will be retried on the next push.
+            }
+          }
+          // Continue saving other years even if one fails.
+        }
+      }
+
+      setState((snapshot) => ({ ...snapshot, stateEtag: result.etag, yearEtags: newYearEtags, syncStatus: 'synced' }));
     } catch (error) {
       if (error instanceof store.ConflictError) {
-        // Someone else (another tab/device) saved in between. Reload the
-        // remote copy rather than blindly overwriting it.
         try {
           const remote = await store.fetchState();
+          const currentYear2 = new Date().getFullYear();
           setState((snapshot) => ({
             ...snapshot,
             customers: remote.data.customers,
             projects: remote.data.projects,
             services: remote.data.services,
-            entries: remote.data.entries,
+            // Current year entries come from remote; past years stay as-is.
+            entries: [
+              ...remote.data.entries,
+              ...snapshot.entries.filter((e) => new Date(e.date).getFullYear() !== currentYear2),
+            ],
             stateEtag: remote.etag,
+            loadedYears: snapshot.loadedYears,
             syncStatus: 'conflict',
           }));
         } catch {
@@ -839,6 +895,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     }
 
     setState((snapshot) => ({ ...snapshot, syncStatus: 'syncing' }));
+    const currentYear = new Date().getFullYear();
 
     try {
       const remote = await store.fetchState();
@@ -847,12 +904,46 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         customers: remote.data.customers,
         projects: remote.data.projects,
         services: remote.data.services,
+        // Remote returns current year entries only; discard any previously loaded past years
+        // so the user starts fresh. They'll be re-fetched lazily when navigated to.
         entries: remote.data.entries,
         stateEtag: remote.etag,
+        loadedYears: [currentYear],
+        yearEtags: {},
         syncStatus: 'synced',
       }));
     } catch {
       setState((snapshot) => ({ ...snapshot, syncStatus: 'error' }));
+    }
+  }, []);
+
+  const pullYearNow = useCallback(async (year: number) => {
+    if (DEV_MODE || stateRef.current.demoMode) {
+      return;
+    }
+    if (stateRef.current.loadedYears.includes(year)) {
+      return;
+    }
+    if (yearsLoadingRef.current.has(year)) {
+      return;
+    }
+
+    yearsLoadingRef.current.add(year);
+    try {
+      const remote = await store.fetchEntriesYear(year);
+      setState((current) => {
+        if (current.loadedYears.includes(year)) {
+          return current; // Loaded by another concurrent call
+        }
+        return {
+          ...current,
+          entries: [...current.entries, ...remote.entries],
+          loadedYears: [...current.loadedYears, year],
+          yearEtags: { ...current.yearEtags, [year]: remote.etag },
+        };
+      });
+    } finally {
+      yearsLoadingRef.current.delete(year);
     }
   }, []);
 
@@ -1125,6 +1216,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       return;
     }
 
+    const currentYear = new Date().getFullYear();
     skipNextPushRef.current = true;
     setState((current) => {
       if (current.demoMode) {
@@ -1140,6 +1232,8 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
           page: 'track',
           modal: null,
           syncStatus: 'idle',
+          loadedYears: [currentYear],
+          yearEtags: {},
           selectedCustomerId: null,
           selectedProjectId: null,
           selectedServiceId: null,
@@ -1162,6 +1256,8 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         page: 'track',
         modal: null,
         syncStatus: 'idle',
+        loadedYears: [currentYear],
+        yearEtags: {},
         selectedCustomerId: null,
         selectedProjectId: null,
         selectedServiceId: null,
@@ -1179,6 +1275,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
       const nextDemoMode = !current.demoMode;
       const data = getStoreData(nextDemoMode);
       store.setDemoModeFlag(nextDemoMode);
+      const currentYear = new Date().getFullYear();
 
       return {
         ...current,
@@ -1189,6 +1286,8 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
         demoMode: nextDemoMode,
         modal: null,
         syncStatus: 'idle',
+        loadedYears: [currentYear],
+        yearEtags: {},
         selectedCustomerId: null,
         selectedProjectId: null,
         selectedServiceId: null,
@@ -1245,11 +1344,15 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
   }, []);
 
   useEffect(() => {
+    // Cache to localStorage, filtering entries to current year only so the cache
+    // stays lean. Past-year entries are re-fetched lazily from the remote on demand.
+    const currentYear = new Date().getFullYear();
+    const currentYearEntries = state.entries.filter((e) => new Date(e.date).getFullYear() === currentYear);
     const data = {
       customers: state.customers,
       projects: state.projects,
       services: state.services,
-      entries: state.entries,
+      entries: currentYearEntries,
     };
 
     if (state.demoMode) {
@@ -1259,6 +1362,13 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
 
     store.saveData(data);
   }, [state.customers, state.demoMode, state.entries, state.projects, state.services]);
+
+  // Lazy-load past years when the calendar navigates to a year not yet in memory.
+  useEffect(() => {
+    if (!calendarAnchorISO || DEV_MODE || stateRef.current.demoMode) return;
+    const year = parseISO(calendarAnchorISO).getFullYear();
+    void pullYearNow(year);
+  }, [calendarAnchorISO, pullYearNow]);
 
   // Fetch the current user's identity once on mount. When unauthenticated
   // (no clientPrincipal with the owner role) the app falls back to demo mode
@@ -1275,6 +1385,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
             const nextDemoMode = true;
             const data = getStoreData(nextDemoMode);
             store.setDemoModeFlag(nextDemoMode);
+            const currentYear = new Date().getFullYear();
             return {
               ...current,
               isAuthenticated: false,
@@ -1284,6 +1395,8 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
               services: data.services,
               entries: data.entries,
               syncStatus: 'idle',
+              loadedYears: [currentYear],
+              yearEtags: {},
             };
           });
           return;
@@ -1296,6 +1409,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
           if (current.demoMode) {
             store.setDemoModeFlag(false);
             const realData = store.loadData() || createEmptyData();
+            const currentYear = new Date().getFullYear();
             return {
               ...current,
               isAuthenticated: true,
@@ -1304,8 +1418,10 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
               customers: realData.customers,
               projects: realData.projects,
               services: realData.services,
-              entries: realData.entries,
+              entries: realData.entries.filter((e) => new Date(e.date).getFullYear() === currentYear),
               syncStatus: 'idle',
+              loadedYears: [currentYear],
+              yearEtags: {},
             };
           }
 

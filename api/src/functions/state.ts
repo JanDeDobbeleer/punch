@@ -1,8 +1,13 @@
-// GET  /api/state  -> returns the current PersistedData JSON document plus its ETag.
-// PUT  /api/state  -> writes a new PersistedData document. Callers must send the ETag
-//                     they last read via the "If-Match" header; a mismatch (someone
-//                     else saved in between) returns 412 so the client can reload
-//                     instead of silently overwriting newer data.
+// GET  /api/state                 -> returns config + current year's entries from tempo.json.
+//                                     Filters out entries from past years transparently, enabling
+//                                     gradual migration from single-blob to per-year blobs.
+// GET  /api/state?year=YYYY       -> returns entries for that year from tempo.YYYY.json.
+//                                     Used for lazy-loading past year data on demand.
+// PUT  /api/state                 -> saves config + current year entries to tempo.json.
+//                                     On first write after migration, archives any past-year
+//                                     entries found in the existing blob to tempo.YYYY.json files.
+// PUT  /api/state?year=YYYY       -> saves entries to tempo.YYYY.json.
+//                                     Uses ETag / If-Match for optimistic concurrency like the main blob.
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import { getStateContainerClient, STATE_BLOB_NAME } from '../blobClient.js';
@@ -27,6 +32,18 @@ function isPersistedData(value: unknown): value is PersistedData {
     && Array.isArray(candidate.entries);
 }
 
+function entryYear(entry: unknown): number {
+  if (!entry || typeof entry !== 'object') return 0;
+  const date = (entry as { date?: unknown }).date;
+  if (typeof date !== 'string') return 0;
+  const y = new Date(date).getFullYear();
+  return Number.isFinite(y) ? y : 0;
+}
+
+function yearBlobName(year: number): string {
+  return `tempo.${year}.json`;
+}
+
 const EMPTY_STATE: PersistedData = { customers: [], projects: [], services: [], entries: [] };
 
 async function getState(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
@@ -35,19 +52,64 @@ async function getState(request: HttpRequest, context: InvocationContext): Promi
   }
 
   const container = getStateContainerClient();
-  const blob = container.getBlockBlobClient(STATE_BLOB_NAME);
+  const yearParam = request.query.get('year');
 
+  // Year-specific request: return entries from tempo.YYYY.json.
+  if (yearParam !== null) {
+    const year = Number(yearParam);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return { status: 400, jsonBody: { message: 'Invalid year parameter.' } };
+    }
+    const blob = container.getBlockBlobClient(yearBlobName(year));
+    try {
+      const download = await blob.download();
+      const body = await streamToString(download.readableStreamBody);
+      return {
+        status: 200,
+        headers: { ETag: download.etag ?? '', 'Content-Type': 'application/json' },
+        body,
+      };
+    } catch (error) {
+      if (error instanceof RestError && error.statusCode === 404) {
+        return {
+          status: 200,
+          headers: { ETag: '', 'Content-Type': 'application/json' },
+          jsonBody: { entries: [] },
+        };
+      }
+      context.error(`Failed to read state blob for year ${year}`, error);
+      return { status: 500, jsonBody: { message: `Failed to read state for year ${year}.` } };
+    }
+  }
+
+  // Default: return config + current year entries from tempo.json, filtering out any
+  // past-year entries that pre-date the year-split migration.
+  const currentYear = new Date().getFullYear();
+  const blob = container.getBlockBlobClient(STATE_BLOB_NAME);
   try {
     const download = await blob.download();
-    const body = await streamToString(download.readableStreamBody);
+    const raw = await streamToString(download.readableStreamBody);
+    const parsed: unknown = JSON.parse(raw);
+    if (isPersistedData(parsed)) {
+      const filtered: PersistedData = {
+        customers: parsed.customers,
+        projects: parsed.projects,
+        services: parsed.services ?? [],
+        entries: parsed.entries.filter((e) => entryYear(e) === currentYear),
+      };
+      return {
+        status: 200,
+        headers: { ETag: download.etag ?? '', 'Content-Type': 'application/json' },
+        body: JSON.stringify(filtered),
+      };
+    }
     return {
       status: 200,
       headers: { ETag: download.etag ?? '', 'Content-Type': 'application/json' },
-      body,
+      body: raw,
     };
   } catch (error) {
     if (error instanceof RestError && error.statusCode === 404) {
-      // No state saved yet: this is the first run for a fresh environment.
       return {
         status: 200,
         headers: { ETag: '', 'Content-Type': 'application/json' },
@@ -71,19 +133,87 @@ async function putState(request: HttpRequest, context: InvocationContext): Promi
     return { status: 400, jsonBody: { message: 'Body must be valid JSON.' } };
   }
 
+  const container = getStateContainerClient();
+  await container.createIfNotExists();
+  const yearParam = request.query.get('year');
+
+  // Year-specific PUT: save entries to tempo.YYYY.json.
+  if (yearParam !== null) {
+    const year = Number(yearParam);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return { status: 400, jsonBody: { message: 'Invalid year parameter.' } };
+    }
+    if (!payload || typeof payload !== 'object' || !Array.isArray((payload as { entries?: unknown }).entries)) {
+      return { status: 400, jsonBody: { message: 'Body must contain entries[].' } };
+    }
+    const ifMatch = request.headers.get('if-match');
+    const blob = container.getBlockBlobClient(yearBlobName(year));
+    const content = JSON.stringify(payload, null, 2);
+    try {
+      const conditions = ifMatch ? { ifMatch } : { ifNoneMatch: '*' };
+      const result = await blob.upload(content, Buffer.byteLength(content), {
+        blobHTTPHeaders: { blobContentType: 'application/json' },
+        conditions,
+      });
+      return { status: 200, headers: { ETag: result.etag ?? '' }, jsonBody: { ok: true } };
+    } catch (error) {
+      if (error instanceof RestError && (error.statusCode === 412 || error.statusCode === 409)) {
+        return { status: 412, jsonBody: { message: 'State changed since you last loaded it. Reload and retry.' } };
+      }
+      context.error(`Failed to write state blob for year ${year}`, error);
+      return { status: 500, jsonBody: { message: `Failed to save state for year ${year}.` } };
+    }
+  }
+
+  // Default PUT: save config + current year entries to tempo.json.
   if (!isPersistedData(payload)) {
     return { status: 400, jsonBody: { message: 'Body must contain customers[], projects[], services[]?, entries[].' } };
   }
 
+  // Migration: on the first PUT after deployment, the existing blob may contain entries
+  // from multiple years. Archive past-year entries to tempo.YYYY.json before overwriting.
+  const currentYear = new Date().getFullYear();
+  const mainBlob = container.getBlockBlobClient(STATE_BLOB_NAME);
+  try {
+    const existing = await mainBlob.download();
+    const raw = await streamToString(existing.readableStreamBody);
+    const existingData: unknown = JSON.parse(raw);
+    if (isPersistedData(existingData)) {
+      const pastByYear = new Map<number, unknown[]>();
+      for (const entry of existingData.entries) {
+        const year = entryYear(entry);
+        if (year > 0 && year !== currentYear) {
+          if (!pastByYear.has(year)) pastByYear.set(year, []);
+          pastByYear.get(year)!.push(entry);
+        }
+      }
+      for (const [year, entries] of pastByYear) {
+        const yearBlob = container.getBlockBlobClient(yearBlobName(year));
+        const yearContent = JSON.stringify({ entries }, null, 2);
+        try {
+          await yearBlob.upload(yearContent, Buffer.byteLength(yearContent), {
+            blobHTTPHeaders: { blobContentType: 'application/json' },
+            conditions: { ifNoneMatch: '*' }, // create only; never overwrite an existing year blob
+          });
+        } catch (archiveErr) {
+          if (!(archiveErr instanceof RestError && (archiveErr.statusCode === 412 || archiveErr.statusCode === 409))) {
+            context.log(`Skipping archive of year ${year}: blob already exists or write failed.`);
+          }
+        }
+      }
+    }
+  } catch (readErr) {
+    if (!(readErr instanceof RestError && readErr.statusCode === 404)) {
+      context.log('Could not read existing blob for migration; proceeding with save.');
+    }
+  }
+
   const ifMatch = request.headers.get('if-match');
-  const container = getStateContainerClient();
-  await container.createIfNotExists();
-  const blob = container.getBlockBlobClient(STATE_BLOB_NAME);
   const content = JSON.stringify(payload, null, 2);
 
   try {
     const conditions = ifMatch ? { ifMatch } : ifMatch === '' ? {} : { ifNoneMatch: '*' };
-    const result = await blob.upload(content, Buffer.byteLength(content), {
+    const result = await mainBlob.upload(content, Buffer.byteLength(content), {
       blobHTTPHeaders: { blobContentType: 'application/json' },
       conditions,
     });
