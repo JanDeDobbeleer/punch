@@ -291,6 +291,9 @@ export interface ClockCalendarVM {
 export interface ClockViewProps {
   calendar: ClockCalendarVM;
   accent: string;
+  timerStartMs: number | null;
+  onPunch: () => void;
+  onPunchOut: () => void;
 }
 
 export interface ProjectRowVM {

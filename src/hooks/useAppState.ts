@@ -96,6 +96,7 @@ type AppState = PersistedData & {
   serviceDraft: ServiceForm | null;
   exportScope: ExportScope | null;
   earningsFilter: EarningsFilterSeed | null;
+  timerStart: number | null;
 };
 
 type ProjectOrigin = { page: 'projects' } | { page: 'customerDetail'; customerId: string };
@@ -196,6 +197,7 @@ function createStateFromData(data: PersistedData, demoMode: boolean): AppState {
     serviceDraft: null,
     exportScope: null,
     earningsFilter: null,
+    timerStart: (() => { const v = localStorage.getItem('punch.startTime'); return v ? Number(v) : null; })(),
   };
 }
 
@@ -364,10 +366,15 @@ export function useAppState(settings: AppSettings): AppViewModel {
   // The active filter key for the Clock calendar (e.g. "project:xxx"). When set,
   // the summary stats and cell data show only entries matching this key.
   const [calendarFilterKey, setCalendarFilterKey] = useState<string | null>(null);
+  const calendarFilterKeyRef = useRef(calendarFilterKey);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    calendarFilterKeyRef.current = calendarFilterKey;
+  }, [calendarFilterKey]);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -414,6 +421,49 @@ export function useAppState(settings: AppSettings): AppViewModel {
   const openNewEntry = useCallback(() => {
     openNewEntryForDate(selectedClockDayISO ?? stateRef.current.refISO);
   }, [openNewEntryForDate, selectedClockDayISO]);
+
+  const onPunch = useCallback(() => {
+    const now = Date.now();
+    localStorage.setItem('punch.startTime', String(now));
+    setState((current) => ({ ...current, timerStart: now }));
+  }, []);
+
+  const onPunchOut = useCallback(() => {
+    const current = stateRef.current;
+    const start = current.timerStart;
+    if (!start) return;
+    const elapsedMinutes = Math.max(1, Math.round((Date.now() - start) / 60000));
+    localStorage.removeItem('punch.startTime');
+    setState((s) => ({ ...s, timerStart: null }));
+
+    // If a sidebar filter is active, use it to pre-fill the entry kind/id.
+    const filterKey = calendarFilterKeyRef.current;
+    const parts = filterKey ? filterKey.split(':') : [];
+    if (parts[0] === 'project' && parts[1]) {
+      openEntry({ kind: 'project', projectId: parts[1], serviceId: null, customerId: null, date: iso(new Date()), minutes: elapsedMinutes, comment: '' }, true);
+      return;
+    }
+    if (parts[0] === 'service' && parts[1]) {
+      openEntry({ kind: 'service', projectId: null, serviceId: parts[1], customerId: parts[2] ?? null, date: iso(new Date()), minutes: elapsedMinutes, comment: '' }, true);
+      return;
+    }
+    if (parts[0] === 'customer' && parts[1]) {
+      openEntry({ kind: 'customer', projectId: null, serviceId: null, customerId: parts[1], date: iso(new Date()), minutes: elapsedMinutes, comment: '' }, true);
+      return;
+    }
+
+    // No filter active — fall back to the first available project or service.
+    const kind = current.projects[0] ? 'project' : 'service';
+    openEntry({
+      kind,
+      projectId: kind === 'project' ? (current.projects[0]?.id ?? null) : null,
+      serviceId: kind === 'service' ? (current.services[0]?.id ?? null) : null,
+      customerId: kind === 'service' ? (current.customers[0]?.id ?? null) : null,
+      date: iso(new Date()),
+      minutes: elapsedMinutes,
+      comment: '',
+    }, true);
+  }, [openEntry]);
 
   const draftFromProject = useCallback((project: Project | null, customers: Customer[], presetCustomerId?: string): ProjectForm => (
     project
@@ -1941,8 +1991,11 @@ export function useAppState(settings: AppSettings): AppViewModel {
         onToday: onCalendarToday,
       },
       accent: ctx.acc,
+      timerStartMs: ctx.S.timerStart,
+      onPunch,
+      onPunchOut,
     };
-  }, [ctx, openEntry, openNewEntryForDate, onSelectClockDay, onCalendarPrevMonth, onCalendarNextMonth, onCalendarToday, onSetCalendarFilter, onClearCalendarFilter]);
+  }, [ctx, openEntry, openNewEntryForDate, onSelectClockDay, onCalendarPrevMonth, onCalendarNextMonth, onCalendarToday, onSetCalendarFilter, onClearCalendarFilter, onPunch, onPunchOut]);
 
   const projectsProps = useMemo<ProjectsViewProps | null>(() => {
     if (!ctx.isProjects) {

@@ -239,6 +239,21 @@ textarea:focus-visible {
   display: block;
 }
 
+@keyframes punch-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.35; transform: scale(0.75); }
+}
+
+.punch-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  flex-shrink: 0;
+  animation: punch-pulse 1.4s ease-in-out infinite;
+}
+
 .cal-prow {
   transition: border-color 120ms ease;
 }

@@ -51,6 +51,53 @@ const Stat: FC<{ label: string; value: string; accent?: string; first?: boolean 
 // One day cell in the month grid. Shading + pips encode hours logged and
 // which contexts were touched that day. Clicking selects the day into the
 // side panel; clicking the already-selected day returns to the glance state.
+const PunchButton: FC<{ timerStartMs: number | null; accent: string; onPunch: () => void; onPunchOut: () => void }> = ({
+  timerStartMs, accent, onPunch, onPunchOut,
+}) => {
+  if (timerStartMs) {
+    const startLabel = new Date(timerStartMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span className="punch-dot" />
+        <span style={{ fontSize: '12px', color: '#6b7280', fontFamily: "'Geist Mono',monospace", whiteSpace: 'nowrap' }}>
+          Since {startLabel}
+        </span>
+        <button
+          type="button"
+          onClick={onPunchOut}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '7px 14px', borderRadius: '8px',
+            border: '1.5px solid #fca5a5', background: '#fef2f2',
+            color: '#dc2626', cursor: 'pointer',
+            fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
+            whiteSpace: 'nowrap', minHeight: '34px',
+          }}
+        >
+          Punch Out
+        </button>
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={onPunch}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '7px',
+        padding: '7px 14px', borderRadius: '8px',
+        border: 'none', background: accent,
+        color: '#fff', cursor: 'pointer',
+        fontSize: '13px', fontWeight: 600, fontFamily: 'inherit',
+        whiteSpace: 'nowrap', minHeight: '34px',
+      }}
+    >
+      Punch
+    </button>
+  )
+}
+
+
 const CalCell: FC<{ day: ClockMonthDayVM; accent: string }> = ({ day, accent }) => {
   const isOther = !day.isCurrentMonth
   return (
@@ -240,7 +287,7 @@ const CalendarPanel: FC<{ calendar: ClockCalendarVM; accent: string }> = ({ cale
   )
 }
 
-const ClockView: FC<ClockViewProps> = ({ calendar, accent }) => {
+const ClockView: FC<ClockViewProps> = ({ calendar, accent, timerStartMs, onPunch, onPunchOut }) => {
   const isMobile = useIsMobile()
 
   // Arrow keys move the selected day when the calendar has focus. Only
@@ -273,11 +320,18 @@ const ClockView: FC<ClockViewProps> = ({ calendar, accent }) => {
     <div className="clock-view-shell" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
       <div className="clock-view-calendar" style={{ flex: 1.35, overflow: 'auto', background: '#ffffff', borderRight: '1px solid #e9ebef' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '18px 22px 32px' }}>
-          <div className="clock-summary" style={{ display: 'flex', alignItems: 'stretch', paddingBottom: '16px', marginBottom: '14px', borderBottom: '1px solid #eef0f3' }}>
-            <Stat label="Hours" value={calendar.summary.hoursLabel} first />
-            <Stat label="Billable days" value={calendar.summary.daysLabel} />
-            <Stat label="Earnings" value={calendar.summary.earnLabel} accent={accent} />
-            <Stat label="Entries" value={calendar.summary.entryCountLabel} />
+          <div className="clock-summary" style={{ display: 'flex', alignItems: 'center', paddingBottom: '16px', marginBottom: '14px', borderBottom: '1px solid #eef0f3' }}>
+            <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, minWidth: 0 }}>
+              <Stat label="Hours" value={calendar.summary.hoursLabel} first />
+              <Stat label="Billable days" value={calendar.summary.daysLabel} />
+              <Stat label="Earnings" value={calendar.summary.earnLabel} accent={accent} />
+              <Stat label="Entries" value={calendar.summary.entryCountLabel} />
+            </div>
+            {!isMobile && (
+              <div style={{ flexShrink: 0, paddingLeft: '22px' }}>
+                <PunchButton timerStartMs={timerStartMs} accent={accent} onPunch={onPunch} onPunchOut={onPunchOut} />
+              </div>
+            )}
           </div>
 
           <div className="cal-grid" style={{ display: 'grid', gridTemplateColumns: '30px repeat(7, 1fr)', gap: '6px' }}>
