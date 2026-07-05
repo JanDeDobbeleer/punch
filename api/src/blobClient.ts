@@ -10,8 +10,8 @@
 import { BlobServiceClient, StorageSharedKeyCredential, type ContainerClient } from '@azure/storage-blob';
 import { DefaultAzureCredential } from '@azure/identity';
 
-const STATE_CONTAINER = process.env.STATE_CONTAINER ?? process.env.TEMPO_STATE_CONTAINER ?? 'state';
-const ATTACHMENTS_CONTAINER = process.env.ATTACHMENTS_CONTAINER ?? process.env.TEMPO_ATTACHMENTS_CONTAINER ?? 'attachments';
+const STATE_CONTAINER = process.env.STATE_CONTAINER ?? process.env.PUNCH_STATE_CONTAINER ?? 'state';
+const ATTACHMENTS_CONTAINER = process.env.ATTACHMENTS_CONTAINER ?? process.env.PUNCH_ATTACHMENTS_CONTAINER ?? 'attachments';
 export const STATE_BLOB_NAME = 'state.json';
 
 let cachedClient: BlobServiceClient | null = null;
@@ -21,14 +21,14 @@ export function getBlobServiceClient(): BlobServiceClient {
     return cachedClient;
   }
 
-  const connectionString = process.env.STORAGE_CONNECTION_STRING ?? process.env.TEMPO_STORAGE_CONNECTION_STRING;
+  const connectionString = process.env.STORAGE_CONNECTION_STRING ?? process.env.PUNCH_STORAGE_CONNECTION_STRING;
   if (connectionString) {
     cachedClient = BlobServiceClient.fromConnectionString(connectionString);
     return cachedClient;
   }
 
   // Managed identity path: STORAGE_ACCOUNT_URL e.g. https://<account>.blob.core.windows.net
-  const accountUrl = process.env.STORAGE_ACCOUNT_URL ?? process.env.TEMPO_STORAGE_ACCOUNT_URL;
+  const accountUrl = process.env.STORAGE_ACCOUNT_URL ?? process.env.PUNCH_STORAGE_ACCOUNT_URL;
   if (!accountUrl) {
     throw new Error('Set STORAGE_CONNECTION_STRING or STORAGE_ACCOUNT_URL.');
   }
@@ -49,8 +49,8 @@ export function getAttachmentsContainerClient(): ContainerClient {
 // managed identity. In local dev with a connection string, azurite's fixed
 // shared key credential is used instead.
 export function getSharedKeyCredential(): StorageSharedKeyCredential | null {
-  const accountName = process.env.STORAGE_ACCOUNT_NAME ?? process.env.TEMPO_STORAGE_ACCOUNT_NAME;
-  const accountKey = process.env.STORAGE_ACCOUNT_KEY ?? process.env.TEMPO_STORAGE_ACCOUNT_KEY;
+  const accountName = process.env.STORAGE_ACCOUNT_NAME ?? process.env.PUNCH_STORAGE_ACCOUNT_NAME;
+  const accountKey = process.env.STORAGE_ACCOUNT_KEY ?? process.env.PUNCH_STORAGE_ACCOUNT_KEY;
   if (!accountName || !accountKey) {
     return null;
   }

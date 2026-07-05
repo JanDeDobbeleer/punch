@@ -123,7 +123,7 @@ async function deleteAttachment(request: HttpRequest, context: InvocationContext
 // Signs a blob URL for a limited time and permission set. Uses an account
 // shared key when configured (simplest for a single-account setup); falls
 // back to a user-delegation SAS backed by the Function's managed identity
-// when only TEMPO_STORAGE_ACCOUNT_URL is configured (no static account key
+// when only PUNCH_STORAGE_ACCOUNT_URL is configured (no static account key
 // stored anywhere).
 async function signBlobUrl(
   blobUrl: string,

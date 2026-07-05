@@ -1,12 +1,12 @@
 ---
-name: tempo-mobile-layout
-description: Mobile layout contract for Tempo. Use when any task changes component layout, adds a new page or panel, modifies the sidebar or modal, touches index.css, or mentions mobile/responsive/viewport.
+name: mobile-layout
+description: Mobile layout contract for Punch. Use when any task changes component layout, adds a new page or panel, modifies the sidebar or modal, touches index.css, or mentions mobile/responsive/viewport.
 compatibility: No network access required. All content is inline.
 metadata:
   generated_at: "2026-07-03"
   generator: "manual"
 ---
-# Tempo Mobile Layout Skill
+# Punch Mobile Layout Skill
 
 ## When to use this skill
 
@@ -18,7 +18,7 @@ Load this skill whenever a task:
 
 ## Styling split — the most commonly violated convention
 
-**Inline `style` props** (CSSProperties objects in `.tsx` files and in `useTempoState.ts`):
+**Inline `style` props** (CSSProperties objects in `.tsx` files and in `useAppState.ts`):
 - Structural layout: dimensions, flex, padding, margin, colour, typography, spacing
 - Cannot contain `@media` queries — React does not support them in inline styles
 
@@ -77,7 +77,7 @@ The FAB (`.fab`, `src/components/Fab.tsx`) replaces the header "New" button at `
 The sidebar becomes a full-screen drawer at `≤767px`. It is controlled by:
 - `isOpen?: boolean` prop on `SidebarProps`
 - `onClose?: () => void` prop on `SidebarProps`
-- `.sidebar--open` CSS class toggled by `useTempoState.ts`
+- `.sidebar--open` CSS class toggled by `useAppState.ts`
 - The `useIsMobile()` hook (`src/hooks/useMediaQuery.ts`) drives the `isMobile` flag that the hook exposes
 
 If you add new content to the sidebar, verify it renders correctly inside the drawer.

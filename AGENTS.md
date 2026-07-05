@@ -1,6 +1,6 @@
-# Tempo — Agent Instructions
+# Punch — Agent Instructions
 
-Tempo is a personal time-tracking single-page app. This file orients any
+Punch is a personal time-tracking single-page app. This file orients any
 coding agent (GitHub Copilot, etc.) working in this repository.
 
 ## Architecture
@@ -12,7 +12,7 @@ coding agent (GitHub Copilot, etc.) working in this repository.
   with the Static Web App) in `api/`, providing the `/api/*` routes.
 - **Storage**: a single Azure Storage account (`<your-storage-account>`) with two
   blob containers:
-  - `state` — one JSON blob (`state/tempo.json`) holding the entire app state
+  - `state` — one JSON blob (`state/state.json`) holding the entire app state
     (`customers[]`, `projects[]`, `entries[]`). Synced via optimistic
     concurrency using the blob's ETag (`If-Match` header on writes; a 412
     response means someone else wrote first — client refetches and re-applies).
@@ -40,7 +40,7 @@ migrations, or backwards-compat data migration logic unless explicitly asked
 ```
 src/                      # Frontend SPA (Vite root)
   types.ts                # Single source of truth for domain + view-model shapes
-  hooks/useTempoState.ts  # Core state machine: CRUD, view-model building, sync, attachments
+  hooks/useAppState.ts    # Core state machine: CRUD, view-model building, sync, attachments
   lib/store.ts            # All backend I/O: fetchState/saveState (ETag sync),
                            #   uploadAttachment/getAttachmentDownloadUrl/deleteAttachment,
                            #   plus localStorage cache helpers. No GitHub/Gist code — removed.
@@ -69,7 +69,7 @@ sequence — **in order**, to keep TypeScript happy throughout:
    interface for the affected component(s). Both sides of the state boundary
    must agree before either compiles cleanly.
 
-2. **`src/hooks/useTempoState.ts`** — implement the business logic and extend
+2. **`src/hooks/useAppState.ts`** — implement the business logic and extend
    the view-model builder (`useMemo` block) to populate the new fields. This
    file is the *only* place that reads or mutates domain state; components
    never import from `store.ts` or access raw domain arrays.
@@ -85,7 +85,7 @@ actually step-1 omissions.
 
 Structural styles (dimensions, flex, colour, typography, spacing) live as
 **inline `style` props** (`CSSProperties` objects) in the TSX files and in
-`useTempoState.ts`. This is consistent throughout the codebase — do not
+`useAppState.ts`. This is consistent throughout the codebase — do not
 introduce CSS modules, styled-components, or Tailwind.
 
 Anything requiring `@media`, `:hover`, `:active`, `transition`, `animation`,
@@ -110,13 +110,13 @@ Before considering any UI task complete, verify:
 
 Run `npm run test:e2e` — the Playwright suite includes viewport tests.
 
-See also: `.github/skills/tempo-mobile-layout/SKILL.md` for the full mobile
+See also: `.github/skills/mobile-layout/SKILL.md` for the full mobile
 contract including CSS class names, FAB rules, and common mistakes.
 
 ## Key conventions
 
 - **Domain types live in `src/types.ts`** — keep it in sync with both
-  `useTempoState.ts` (state/business logic) and the presentational components
+  `useAppState.ts` (state/business logic) and the presentational components
   that consume the resulting view models. Don't duplicate shape definitions.
 - **Entry kinds and earnings**: three `Entry.kind` values exist — `'project'`,
   `'service'`, and `'customer'`. The earnings formula for each differs. Always
@@ -135,7 +135,7 @@ contract including CSS class names, FAB rules, and common mistakes.
   the path. Filename/contentType are stored as blob metadata / in the
   `AttachmentRef` record, not encoded in the path.
 - **Demo mode** is toggled via `store.getDemoModeFlag()` (a `localStorage`
-  boolean). When active, all reads/writes use the `tempo.demo.v1` localStorage
+  boolean). When active, all reads/writes use the `demo.v1` localStorage
   key and remote sync is fully bypassed. Any code path that reads or modifies
   data must check `current.demoMode` and skip remote I/O, exactly as
   `pushStateNow()` does.
@@ -143,16 +143,16 @@ contract including CSS class names, FAB rules, and common mistakes.
 - **Delete cascades**: deleting a customer must also delete its projects and
   all entries referencing those projects or the customer directly. Deleting a
   project or service must also delete its entries. See `deleteCustomerById`,
-  `deleteProjectDraft`, and `deleteServiceDraft` in `useTempoState.ts` for the
+  `deleteProjectDraft`, and `deleteServiceDraft` in `useAppState.ts` for the
   pattern.
 
 - **SAS generation** in `api/src/functions/attachments.ts` uses a shared-key
-  credential (`TEMPO_STORAGE_ACCOUNT_NAME` / `TEMPO_STORAGE_ACCOUNT_KEY` app
+  credential (`PUNCH_STORAGE_ACCOUNT_NAME` / `PUNCH_STORAGE_ACCOUNT_KEY` app
   settings) because **managed Functions in Azure Static Web Apps do not
   support system-assigned managed identity** — only "bring your own Functions"
   does. Don't try to switch this to `DefaultAzureCredential` without first
   moving off managed Functions.
-- **Local API dev**: `api/src/auth.ts` supports a `TEMPO_SKIP_AUTH_CHECK=1`
+- **Local API dev**: `api/src/auth.ts` supports a `PUNCH_SKIP_AUTH_CHECK=1`
   env var escape hatch, since there's no SWA auth proxy in front of Functions
   during local `func start` / Azurite testing.
 - **Timesheet export** (`src/components/ExportView.tsx`, `src/lib/timesheetExport.ts`)
@@ -203,10 +203,10 @@ Use the appropriate specialised skill or sub-agent for the following task types:
 
 | Task type | Skill / agent | Notes |
 |-----------|--------------|-------|
-| Any feature touching `useTempoState.ts`, `types.ts`, earnings, sync | `.github/skills/tempo-state-machine` | 3-file contract; ETag rules; `entryEarnValue()` |
-| Any UI / layout / CSS change | `.github/skills/tempo-mobile-layout` | Mobile checklist; FAB rules; breakpoints |
-| PDF export, `timesheetExport.ts`, IT depends branding | `.github/skills/tempo-pdf-export` | Brand palette constants; lazy-load rules; CORS |
-| Azure CLI operations (storage, SWA, CORS, roles) | `.github/skills/tempo-azure-ops` | **Set `az account set --subscription MVP` first** |
+| Any feature touching `useAppState.ts`, `types.ts`, earnings, sync | `.github/skills/state-machine` | 3-file contract; ETag rules; `entryEarnValue()` |
+| Any UI / layout / CSS change | `.github/skills/mobile-layout` | Mobile checklist; FAB rules; breakpoints |
+| PDF export, `timesheetExport.ts`, IT depends branding | `.github/skills/pdf-export` | Brand palette constants; lazy-load rules; CORS |
+| Azure CLI operations (storage, SWA, CORS, roles) | `.github/skills/azure-ops` | **Set `az account set --subscription MVP` first** |
 | SWA configuration, deployment, auth setup | `.github/skills/azure-static-web-apps` | General SWA reference (already in repo) |
 | Mobile visual verification / screenshots | `agent-browser` skill at 375×812px | Before and after the change |
 | Security audit (auth rules, secrets, CORS headers) | `ce-security-sentinel` compound agent | Runs independently; do not modify code |

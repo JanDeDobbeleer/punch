@@ -54,7 +54,7 @@ Browser (React 19 + TypeScript + Vite SPA)
           Azure Functions (Node 22, managed, co-hosted with SWA)
           │
           Azure Blob Storage
-            ├── container: state        (tempo.json — the whole data model)
+            ├── container: state        (state.json — the whole data model)
             └── container: attachments  (<entryId>/<attachmentId>)
 ```
 
@@ -76,12 +76,12 @@ Punch is designed to be hosted by a single user. The entire stack runs on Azure 
 
 ```bash
 # Create a resource group (pick any region)
-az group create --name rg-tempo --location westeurope
+az group create --name rg-punch --location westeurope
 
 # Create a storage account (name must be globally unique, 3-24 lowercase chars)
 az storage account create \
   --name <your-storage-account> \
-  --resource-group rg-tempo \
+  --resource-group rg-punch \
   --sku Standard_LRS \
   --kind StorageV2
 
@@ -94,11 +94,11 @@ az storage container create --name attachments --account-name <your-storage-acco
 
 ```bash
 az staticwebapp create \
-  --name tempo-app \
-  --resource-group rg-tempo \
+  --name punch-app \
+  --resource-group rg-punch \
   --location westeurope \
   --sku Free \
-  --source https://github.com/<your-github-username>/tempo \
+  --source https://github.com/<your-github-username>/punch \
   --branch main \
   --app-location / \
   --api-location api \
@@ -115,7 +115,7 @@ Retrieve your storage account key:
 ```bash
 az storage account keys list \
   --account-name <your-storage-account> \
-  --resource-group rg-tempo \
+  --resource-group rg-punch \
   --query "[0].value" -o tsv
 ```
 
@@ -123,8 +123,8 @@ Set the required application settings on the Functions runtime:
 
 ```bash
 az staticwebapp appsettings set \
-  --name tempo-app \
-  --resource-group rg-tempo \
+  --name punch-app \
+  --resource-group rg-punch \
   --setting-names \
     STORAGE_ACCOUNT_NAME=<your-storage-account> \
     STORAGE_ACCOUNT_KEY=<key-from-above> \
@@ -137,15 +137,15 @@ az staticwebapp appsettings set \
 Look up your GitHub identity in the SWA user list (sign in once first so your identity appears):
 
 ```bash
-az staticwebapp users list --name tempo-app --resource-group rg-tempo -o table
+az staticwebapp users list --name punch-app --resource-group rg-punch -o table
 ```
 
 Then assign the `owner` role to your identity:
 
 ```bash
 az staticwebapp users update \
-  --name tempo-app \
-  --resource-group rg-tempo \
+  --name punch-app \
+  --resource-group rg-punch \
   --user-details <your-github-username> \
   --authentication-provider GitHub \
   --roles owner
@@ -171,7 +171,7 @@ az storage cors add \
 Replace `<your-swa-hostname>` with the auto-generated hostname shown by:
 
 ```bash
-az staticwebapp show --name tempo-app --resource-group rg-tempo --query defaultHostname -o tsv
+az staticwebapp show --name punch-app --resource-group rg-punch --query defaultHostname -o tsv
 ```
 
 If you add a custom domain later, run the command again for that origin.

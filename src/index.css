@@ -259,7 +259,7 @@ textarea:focus-visible {
 
 /* ── Responsive scaffolding ─────────────────────────────────────────────
    Breakpoints: mobile < 768px, tablet 768–1023px, desktop >= 1024px.
-   Inline styles (used throughout src/components and useTempoState.ts)
+   Inline styles (used throughout src/components and useAppState.ts)
    cannot express @media rules, so structural/breakpoint-driven layout
    (sidebar drawer, FAB, calendar reflow) is added here as classes that
    components opt into via className, alongside the useIsMobile() hook

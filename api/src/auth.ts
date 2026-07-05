@@ -31,7 +31,7 @@ const REQUIRED_ROLE = 'owner';
 
 // In local development there is no SWA auth proxy in front of the Function,
 // so we allow requests through when explicitly opted in via app settings.
-const skipAuthCheck = (process.env.SKIP_AUTH_CHECK ?? process.env.TEMPO_SKIP_AUTH_CHECK) === '1';
+const skipAuthCheck = (process.env.SKIP_AUTH_CHECK ?? process.env.PUNCH_SKIP_AUTH_CHECK) === '1';
 
 export function requireOwner(request: HttpRequest): ClientPrincipal | null {
   if (skipAuthCheck) {

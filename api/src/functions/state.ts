@@ -54,7 +54,7 @@ async function getState(request: HttpRequest, context: InvocationContext): Promi
   const container = getStateContainerClient();
   const yearParam = request.query.get('year');
 
-  // Year-specific request: return entries from tempo.YYYY.json.
+  // Year-specific request: return entries from state.YYYY.json.
   if (yearParam !== null) {
     const year = Number(yearParam);
     if (!Number.isInteger(year) || year < 2000 || year > 2100) {
@@ -82,7 +82,7 @@ async function getState(request: HttpRequest, context: InvocationContext): Promi
     }
   }
 
-  // Default: return config + current year entries from tempo.json, filtering out any
+  // Default: return config + current year entries from state.json, filtering out any
   // past-year entries that pre-date the year-split migration.
   const currentYear = new Date().getFullYear();
   const blob = container.getBlockBlobClient(STATE_BLOB_NAME);
@@ -137,7 +137,7 @@ async function putState(request: HttpRequest, context: InvocationContext): Promi
   await container.createIfNotExists();
   const yearParam = request.query.get('year');
 
-  // Year-specific PUT: save entries to tempo.YYYY.json.
+  // Year-specific PUT: save entries to state.YYYY.json.
   if (yearParam !== null) {
     const year = Number(yearParam);
     if (!Number.isInteger(year) || year < 2000 || year > 2100) {
@@ -165,13 +165,13 @@ async function putState(request: HttpRequest, context: InvocationContext): Promi
     }
   }
 
-  // Default PUT: save config + current year entries to tempo.json.
+  // Default PUT: save config + current year entries to state.json.
   if (!isPersistedData(payload)) {
     return { status: 400, jsonBody: { message: 'Body must contain customers[], projects[], services[]?, entries[].' } };
   }
 
   // Migration: on the first PUT after deployment, the existing blob may contain entries
-  // from multiple years. Archive past-year entries to tempo.YYYY.json before overwriting.
+  // from multiple years. Archive past-year entries to state.YYYY.json before overwriting.
   const currentYear = new Date().getFullYear();
   const mainBlob = container.getBlockBlobClient(STATE_BLOB_NAME);
   try {

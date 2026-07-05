@@ -15,7 +15,6 @@ async function loadDemoMode(page: import('@playwright/test').Page) {
   // Start from a clean slate on every test run so the seed is always fresh.
   await page.evaluate(() => {
     window.localStorage.removeItem('demo.v1')
-    window.localStorage.removeItem('tempo.demo.v1')
     window.localStorage.setItem('demoMode', '1')
   })
 

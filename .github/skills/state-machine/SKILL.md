@@ -1,17 +1,17 @@
 ---
-name: tempo-state-machine
-description: Authoring contract for Tempo's state machine. Use when any task touches useTempoState.ts, src/types.ts, src/lib/store.ts, adds a new entry kind, changes earnings logic, modifies sync/attachment behaviour, or adds a new feature (not just a restyle).
+name: state-machine
+description: Authoring contract for Punch's state machine. Use when any task touches useAppState.ts, src/types.ts, src/lib/store.ts, adds a new entry kind, changes earnings logic, modifies sync/attachment behaviour, or adds a new feature (not just a restyle).
 compatibility: No network access required. All content is inline.
 metadata:
   generated_at: "2026-07-03"
   generator: "manual"
 ---
-# Tempo State Machine Skill
+# Punch State Machine Skill
 
 ## When to use this skill
 
 Load this skill whenever a task:
-- Touches `src/hooks/useTempoState.ts` or `src/types.ts`
+- Touches `src/hooks/useAppState.ts` or `src/types.ts`
 - Adds or changes an entry kind, rate period, or financial calculation
 - Modifies sync, ETag handling, or attachment logic
 - Introduces a new domain entity or view-model interface
@@ -23,7 +23,7 @@ Every feature that changes **behaviour** (not just style) requires three coordin
 
 1. **`src/types.ts`** — add/extend the domain type *and* the view-model interface(s) for the affected component(s). Both sides of the state boundary must agree before either compiles cleanly.
 
-2. **`src/hooks/useTempoState.ts`** — implement the business logic and extend the `useMemo` view-model builder to populate the new fields. This is the **only** file that reads or mutates domain state; components never import from `store.ts` or access raw domain arrays.
+2. **`src/hooks/useAppState.ts`** — implement the business logic and extend the `useMemo` view-model builder to populate the new fields. This is the **only** file that reads or mutates domain state; components never import from `store.ts` or access raw domain arrays.
 
 3. **The component** (`src/components/*.tsx`) — consume the new view-model props. Accept data, render it, call callbacks. Done.
 
@@ -69,7 +69,7 @@ Agents must never:
 - Implement an "optimistic concurrency bypass for simplicity."
 
 ```typescript
-// src/hooks/useTempoState.ts — pushStateNow
+// src/hooks/useAppState.ts — pushStateNow
 const result = await store.saveState(data, stateRef.current.stateEtag);
 // ...
 if (error instanceof store.ConflictError) {
@@ -107,7 +107,7 @@ const someCallback = useCallback(async () => {
 ## Demo mode
 
 Two parallel storage namespaces exist. `store.getDemoModeFlag()` reads a `localStorage` boolean. When true:
-- All reads/writes go to the `tempo.demo.v1` localStorage key.
+- All reads/writes go to the `demo.v1` localStorage key.
 - Remote sync is completely bypassed — `pushStateNow` and `pullStateNow` return early.
 
 Any code path that reads or modifies data must check `current.demoMode` and route accordingly, exactly as `pushStateNow()` does:
