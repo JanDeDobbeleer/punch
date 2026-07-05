@@ -117,12 +117,16 @@ const Sidebar: FC<SidebarProps> = ({
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 8px 20px' }}>
         <div style={logoStyle}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="9"></circle>
-            <path d="M12 7v5l3.5 2"></path>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            {/* Punch card outline with clipped top-left corner */}
+            <path d="M4 7.5 L9 2 L20 2 L20 22 L4 22 Z"/>
+            {/* Punched holes */}
+            <rect x="7.5" y="8.5" width="2.5" height="4" rx="0.8" fill="currentColor" stroke="none"/>
+            <rect x="12" y="8.5" width="2.5" height="4" rx="0.8" fill="currentColor" stroke="none"/>
+            <rect x="16.5" y="8.5" width="2.5" height="4" rx="0.8" fill="currentColor" stroke="none"/>
           </svg>
         </div>
-        <div style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '-0.02em' }}>Tempo</div>
+        <div style={{ fontSize: '16px', fontWeight: 700, letterSpacing: '-0.02em' }}>Punch</div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>

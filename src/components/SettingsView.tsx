@@ -73,7 +73,7 @@ const SettingsView: FC<SettingsViewProps> = ({
         <div style={{ fontSize: '17px', fontWeight: 600, letterSpacing: '-0.01em' }}>Demo mode</div>
         <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 500 }}>Use sample Tempo data</div>
+            <div style={{ fontSize: '14px', fontWeight: 500 }}>Use sample Punch data</div>
             <div style={{ marginTop: '6px', fontSize: '13px', color: '#64748b', lineHeight: 1.65 }}>{demoModeHint}</div>
           </div>
 

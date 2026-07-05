@@ -1,6 +1,6 @@
-// Shared domain and view-model types for Tempo.
+// Shared domain and view-model types for the app.
 // This file is the single source of truth for the "shape" of data
-// flowing between the state hook (useTempoState) and the presentational
+// flowing between the state hook (useAppState) and the presentational
 // components. Keep it in sync with both sides.
 
 import type { CSSProperties, MouseEvent, ChangeEvent } from 'react';
@@ -129,7 +129,7 @@ export interface PersistedData {
 
 // ─── app-level settings (equivalent to DC `props`) ──────────────────────
 
-export interface TempoSettings {
+export interface AppSettings {
   accentColor: string;
   hoursPerDay: number;
   showWeekend: boolean;
@@ -581,9 +581,9 @@ export interface SettingsViewProps {
   onDeleteAll: () => void;
 }
 
-// ─── the aggregate view-model returned by useTempoState() ───────────────
+// ─── the aggregate view-model returned by useAppState() ─────────────────
 
-export interface TempoViewModel {
+export interface AppViewModel {
   showTrack: boolean;
   showProjects: boolean;
   showServices: boolean;

@@ -1,4 +1,4 @@
-# Tempo
+# Punch
 
 A personal time-tracking app for freelancers and independent consultants. Log hours to projects and customers, track day-rate earnings, book flat-fee services, and generate branded PDF timesheets — all in a single-page app hosted on Azure.
 
@@ -64,7 +64,7 @@ Browser (React 19 + TypeScript + Vite SPA)
 
 ## Self-hosting on Azure
 
-Tempo is designed to be hosted by a single user. The entire stack runs on Azure services with a generous free tier.
+Punch is designed to be hosted by a single user. The entire stack runs on Azure services with a generous free tier.
 
 ### 1 — Prerequisites
 
@@ -126,10 +126,10 @@ az staticwebapp appsettings set \
   --name tempo-app \
   --resource-group rg-tempo \
   --setting-names \
-    TEMPO_STORAGE_ACCOUNT_NAME=<your-storage-account> \
-    TEMPO_STORAGE_ACCOUNT_KEY=<key-from-above> \
-    TEMPO_STATE_CONTAINER=state \
-    TEMPO_ATTACHMENTS_CONTAINER=attachments
+    STORAGE_ACCOUNT_NAME=<your-storage-account> \
+    STORAGE_ACCOUNT_KEY=<key-from-above> \
+    STATE_CONTAINER=state \
+    ATTACHMENTS_CONTAINER=attachments
 ```
 
 ### 5 — Invite yourself as owner
@@ -205,14 +205,14 @@ cd api && npm run watch
 npm run dev
 ```
 
-The frontend runs at `http://localhost:5173`. Because there is no SWA auth proxy locally, set `TEMPO_SKIP_AUTH_CHECK=1` in `api/local.settings.json` — the API will synthesise a dummy owner identity so all endpoints work without a real GitHub sign-in.
+The frontend runs at `http://localhost:5173`. Because there is no SWA auth proxy locally, set `SKIP_AUTH_CHECK=1` in `api/local.settings.json` — the API will synthesise a dummy owner identity so all endpoints work without a real GitHub sign-in.
 
 ```jsonc
 // api/local.settings.json
 {
   "Values": {
     ...
-    "TEMPO_SKIP_AUTH_CHECK": "1"
+    "SKIP_AUTH_CHECK": "1"
   }
 }
 ```

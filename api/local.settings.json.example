@@ -3,9 +3,9 @@
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "node",
-    "TEMPO_STORAGE_CONNECTION_STRING": "UseDevelopmentStorage=true",
-    "TEMPO_STATE_CONTAINER": "state",
-    "TEMPO_ATTACHMENTS_CONTAINER": "attachments"
+    "STORAGE_CONNECTION_STRING": "UseDevelopmentStorage=true",
+    "STATE_CONTAINER": "state",
+    "ATTACHMENTS_CONTAINER": "attachments"
   },
   "Host": {
     "CORS": "*"

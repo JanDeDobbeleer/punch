@@ -1,7 +1,7 @@
 import { type FC, Suspense, lazy, useEffect, useState } from 'react';
-import { useTempoState } from './hooks/useTempoState';
+import { useAppState } from './hooks/useAppState';
 import { useIsMobile } from './hooks/useMediaQuery';
-import type { TempoSettings } from './types';
+import type { AppSettings } from './types';
 import Sidebar from './components/Sidebar';
 import AppHeader from './components/AppHeader';
 import TrackView from './components/TrackView';
@@ -20,9 +20,8 @@ import Fab from './components/Fab';
 const ExportView = lazy(() => import('./components/ExportView'));
 const EarningsView = lazy(() => import('./components/EarningsView'));
 
-// Mirrors the DC root's editable-settings defaults (see Tempo.dc.html's
-// data-props block: accentColor / hoursPerDay / showWeekend).
-const SETTINGS: TempoSettings = {
+// App-level settings (accent colour, hours-per-day, show-weekend toggle).
+const SETTINGS: AppSettings = {
   accentColor: '#2563eb',
   hoursPerDay: 8,
   showWeekend: false,
@@ -56,7 +55,7 @@ const App: FC = () => {
     exportProps,
     earningsProps,
     modalProps,
-  } = useTempoState(SETTINGS);
+  } = useAppState(SETTINGS);
 
   useEffect(() => {
     if (!isMobile) {

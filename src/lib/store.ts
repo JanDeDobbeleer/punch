@@ -1,8 +1,15 @@
 import type { AttachmentRef, Entry, PersistedData } from '../types';
 
-const STORAGE_KEY = 'tempo.v1';
-const DEMO_STORAGE_KEY = 'tempo.demo.v1';
-const DEMO_MODE_KEY = 'tempo.demoMode';
+const STORAGE_KEY = 'state.v1';
+const DEMO_STORAGE_KEY = 'demo.v1';
+const DEMO_MODE_KEY = 'demoMode';
+
+// Legacy keys kept for migration – reads fall back to these if the new keys
+// have no data yet. Writes always use the new keys above.
+// Remove these (and the fallback calls below) once all sessions have migrated.
+const LEGACY_STORAGE_KEY = 'tempo.v1';
+const LEGACY_DEMO_STORAGE_KEY = 'tempo.demo.v1';
+const LEGACY_DEMO_MODE_KEY = 'tempo.demoMode';
 
 function isPersistedData(value: unknown): value is PersistedData {
   if (!value || typeof value !== 'object') {
@@ -55,7 +62,7 @@ function normalizePersistedData(data: PersistedData): PersistedData {
 // of truth once the app is online and authenticated.
 
 export function loadData(): PersistedData | null {
-  return loadPersistedData(STORAGE_KEY);
+  return loadPersistedData(STORAGE_KEY) ?? loadPersistedData(LEGACY_STORAGE_KEY);
 }
 
 export function saveData(data: PersistedData): void {
@@ -64,10 +71,11 @@ export function saveData(data: PersistedData): void {
 
 export function clearData(): void {
   clearPersistedData(STORAGE_KEY);
+  clearPersistedData(LEGACY_STORAGE_KEY);
 }
 
 export function loadDemoData(): PersistedData | null {
-  return loadPersistedData(DEMO_STORAGE_KEY);
+  return loadPersistedData(DEMO_STORAGE_KEY) ?? loadPersistedData(LEGACY_DEMO_STORAGE_KEY);
 }
 
 export function saveDemoData(data: PersistedData): void {
@@ -76,11 +84,13 @@ export function saveDemoData(data: PersistedData): void {
 
 export function clearDemoData(): void {
   clearPersistedData(DEMO_STORAGE_KEY);
+  clearPersistedData(LEGACY_DEMO_STORAGE_KEY);
 }
 
 export function getDemoModeFlag(): boolean {
   try {
-    return window.localStorage.getItem(DEMO_MODE_KEY) === '1';
+    return window.localStorage.getItem(DEMO_MODE_KEY) === '1'
+      || window.localStorage.getItem(LEGACY_DEMO_MODE_KEY) === '1';
   } catch {
     return false;
   }
@@ -93,6 +103,8 @@ export function setDemoModeFlag(enabled: boolean): void {
     } else {
       window.localStorage.removeItem(DEMO_MODE_KEY);
     }
+    // Always clear the legacy key so it doesn't linger after migration.
+    window.localStorage.removeItem(LEGACY_DEMO_MODE_KEY);
   } catch {
     // Ignore storage failures to match the legacy runtime behavior.
   }

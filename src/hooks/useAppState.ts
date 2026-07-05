@@ -38,8 +38,8 @@ import type {
   SettingsViewProps,
   SidebarProps,
   SyncStatus,
-  TempoSettings,
-  TempoViewModel,
+  AppSettings,
+  AppViewModel,
   TrackDayEntryVM,
   TrackDayPanelVM,
   TrackMonthDayVM,
@@ -72,7 +72,7 @@ function colorForEntry(
     : colorForProject(projById[entry.projectId ?? ''], custById);
 }
 
-type TempoState = PersistedData & {
+type AppState = PersistedData & {
   page: Page;
   refISO: string;
   modal: ModalState | null;
@@ -102,7 +102,7 @@ type ProjectOrigin = { page: 'projects' } | { page: 'customerDetail'; customerId
 type EntryDraft = Pick<Entry, 'kind' | 'projectId' | 'serviceId' | 'customerId' | 'date' | 'minutes' | 'comment'> & Partial<Pick<Entry, 'id' | 'attachments' | 'amount'>>;
 
 type RenderCtx = {
-  S: TempoState;
+  S: AppState;
   acc: string;
   hpd: number;
   showWeekend: boolean;
@@ -128,7 +128,7 @@ type RenderCtx = {
   calendarFilterKey: string | null;
 };
 
-function getHoursPerDay(settings: TempoSettings): number {
+function getHoursPerDay(settings: AppSettings): number {
   const value = Number(settings.hoursPerDay);
   return value > 0 ? value : 8;
 }
@@ -167,7 +167,7 @@ function createEmptyData(): PersistedData {
   };
 }
 
-function createStateFromData(data: PersistedData, demoMode: boolean): TempoState {
+function createStateFromData(data: PersistedData, demoMode: boolean): AppState {
   const today = new Date();
   const currentYear = today.getFullYear();
 
@@ -342,13 +342,13 @@ function getSyncStatusMeta(demoMode: boolean, syncStatus: SyncStatus): { label: 
   return { label: 'Saved in browser', color: '#9ca3af' };
 }
 
-function createInitialState(): TempoState {
+function createInitialState(): AppState {
   const demoMode = store.getDemoModeFlag();
   return createStateFromData(getStoreData(demoMode), demoMode);
 }
 
-export function useTempoState(settings: TempoSettings): TempoViewModel {
-  const [state, setState] = useState<TempoState>(createInitialState);
+export function useAppState(settings: AppSettings): AppViewModel {
+  const [state, setState] = useState<AppState>(createInitialState);
   const stateRef = useRef(state);
   const settingsRef = useRef(settings);
   const skipNextPushRef = useRef(false);
@@ -1697,7 +1697,7 @@ export function useTempoState(settings: TempoSettings): TempoViewModel {
     const { label: syncStatusLabel, color: syncStatusColor } = getSyncStatusMeta(ctx.S.demoMode, ctx.S.syncStatus);
 
     const demoModeHint = ctx.S.isAuthenticated
-      ? 'Preview Tempo with example projects, customers and time entries. Your real data stays untouched and you can switch back anytime.'
+      ? 'Preview Punch with example projects, customers and time entries. Your real data stays untouched and you can switch back anytime.'
       : 'You\'re browsing as a guest. Sign in with GitHub to save your data and sync it across devices.';
 
     return {

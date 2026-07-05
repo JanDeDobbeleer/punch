@@ -2,12 +2,12 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, test, vi, beforeEach } from 'vitest'
 
 import App from './App'
-import { useTempoState } from './hooks/useTempoState'
+import { useAppState } from './hooks/useAppState'
 import { useIsMobile } from './hooks/useMediaQuery'
-import type { TempoSettings, TempoViewModel } from './types'
+import type { AppSettings, AppViewModel } from './types'
 
-vi.mock('./hooks/useTempoState', () => ({
-  useTempoState: vi.fn(),
+vi.mock('./hooks/useAppState', () => ({
+  useAppState: vi.fn(),
 }))
 
 vi.mock('./hooks/useMediaQuery', () => ({
@@ -74,10 +74,10 @@ vi.mock('./components/Fab', () => ({
   ),
 }))
 
-const mockedUseTempoState = vi.mocked(useTempoState)
+const mockedUseAppState = vi.mocked(useAppState)
 const mockedUseIsMobile = vi.mocked(useIsMobile)
 
-function makeViewModel(overrides: Partial<TempoViewModel> = {}): TempoViewModel {
+function makeViewModel(overrides: Partial<AppViewModel> = {}): AppViewModel {
   return {
     showTrack: true,
     showProjects: false,
@@ -162,11 +162,11 @@ function makeViewModel(overrides: Partial<TempoViewModel> = {}): TempoViewModel 
 describe('App FAB integration', () => {
   beforeEach(() => {
     mockedUseIsMobile.mockReturnValue(true)
-    mockedUseTempoState.mockImplementation((_settings: TempoSettings) => makeViewModel())
+    mockedUseAppState.mockImplementation((_settings: AppSettings) => makeViewModel())
   })
 
   test('shows Add hours on mobile for the track week view', () => {
-    mockedUseTempoState.mockReturnValue(makeViewModel())
+    mockedUseAppState.mockReturnValue(makeViewModel())
 
     render(<App />)
 
@@ -174,7 +174,7 @@ describe('App FAB integration', () => {
   })
 
   test('shows New project on the projects screen', () => {
-    mockedUseTempoState.mockReturnValue(makeViewModel({
+    mockedUseAppState.mockReturnValue(makeViewModel({
       showTrack: false,
       showProjects: true,
       headerProps: {
@@ -192,7 +192,7 @@ describe('App FAB integration', () => {
   })
 
   test('shows New service on the services screen', () => {
-    mockedUseTempoState.mockReturnValue(makeViewModel({
+    mockedUseAppState.mockReturnValue(makeViewModel({
       showTrack: false,
       showServices: true,
       headerProps: {
@@ -210,15 +210,15 @@ describe('App FAB integration', () => {
   })
 
   test('hides the FAB on settings and detail screens', () => {
-    const scenarios: TempoViewModel[] = [
-      makeViewModel({ showTrack: false, showSettings: true, headerProps: { ...makeViewModel().headerProps, isTrack: false }, trackProps: null, settingsProps: {} as TempoViewModel['settingsProps'] }),
-      makeViewModel({ showTrack: false, showCustomerDetail: true, headerProps: { ...makeViewModel().headerProps, isTrack: false }, trackProps: null, customerDetailProps: {} as TempoViewModel['customerDetailProps'] }),
-      makeViewModel({ showTrack: false, showProjectDetail: true, headerProps: { ...makeViewModel().headerProps, isTrack: false }, trackProps: null, projectDetailProps: {} as TempoViewModel['projectDetailProps'] }),
-      makeViewModel({ showTrack: false, showServiceDetail: true, headerProps: { ...makeViewModel().headerProps, isTrack: false }, trackProps: null, serviceDetailProps: {} as TempoViewModel['serviceDetailProps'] }),
+    const scenarios: AppViewModel[] = [
+      makeViewModel({ showTrack: false, showSettings: true, headerProps: { ...makeViewModel().headerProps, isTrack: false }, trackProps: null, settingsProps: {} as AppViewModel['settingsProps'] }),
+      makeViewModel({ showTrack: false, showCustomerDetail: true, headerProps: { ...makeViewModel().headerProps, isTrack: false }, trackProps: null, customerDetailProps: {} as AppViewModel['customerDetailProps'] }),
+      makeViewModel({ showTrack: false, showProjectDetail: true, headerProps: { ...makeViewModel().headerProps, isTrack: false }, trackProps: null, projectDetailProps: {} as AppViewModel['projectDetailProps'] }),
+      makeViewModel({ showTrack: false, showServiceDetail: true, headerProps: { ...makeViewModel().headerProps, isTrack: false }, trackProps: null, serviceDetailProps: {} as AppViewModel['serviceDetailProps'] }),
     ]
 
     for (const scenario of scenarios) {
-      mockedUseTempoState.mockReturnValue(scenario)
+      mockedUseAppState.mockReturnValue(scenario)
       const { unmount } = render(<App />)
       expect(screen.queryByRole('button', { name: /Add hours|New project|New service|New customer/ })).not.toBeInTheDocument()
       unmount()
@@ -226,9 +226,9 @@ describe('App FAB integration', () => {
   })
 
   test('hides the FAB when a modal is open', () => {
-    mockedUseTempoState.mockReturnValue(makeViewModel({
+    mockedUseAppState.mockReturnValue(makeViewModel({
       modalOpen: true,
-      modalProps: {} as TempoViewModel['modalProps'],
+      modalProps: {} as AppViewModel['modalProps'],
     }))
 
     render(<App />)

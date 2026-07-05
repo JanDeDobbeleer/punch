@@ -1,6 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
   <circle cx="24" cy="24" r="21" fill="#2563eb"/>
   <circle cx="24" cy="24" r="21" fill="none" stroke="#1d4ed8" stroke-width="1.5"/>
-  <path d="M24 11v13l9 5" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="24" cy="24" r="2.6" fill="#ffffff"/>
+  <!-- Punch card: white card with classic clipped top-left corner -->
+  <path d="M10 18 L16 12 L38 12 L38 36 L10 36 Z" fill="white"/>
+  <!-- Punched holes -->
+  <rect x="14" y="16" width="4" height="6" rx="1.5" fill="#2563eb"/>
+  <rect x="20" y="16" width="4" height="6" rx="1.5" fill="#2563eb"/>
+  <rect x="26" y="16" width="4" height="6" rx="1.5" fill="#2563eb"/>
+  <rect x="32" y="16" width="4" height="6" rx="1.5" fill="#2563eb"/>
+  <!-- Card text lines -->
+  <line x1="14" y1="27" x2="35" y2="27" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="14" y1="31" x2="27" y2="31" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/>
 </svg>
