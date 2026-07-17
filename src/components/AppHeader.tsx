@@ -153,7 +153,7 @@ const AppHeader: FC<AppHeaderProps> = ({
             </div>
             {!isMobile && (
               <button type="button" style={btnPrimary} onClick={onNewEntry}>
-                + Add hours
+                + Log entry
               </button>
             )}
           </>

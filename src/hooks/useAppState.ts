@@ -2128,7 +2128,7 @@ export function useAppState(settings: AppSettings): AppViewModel {
     }));
 
     const modalTitle = modal.type === 'entry'
-      ? (modal.isNew ? 'Log hours' : 'Edit entry')
+      ? (modal.isNew ? 'Log entry' : 'Edit entry')
       : (modal.isNew ? 'New customer' : 'Edit customer');
     const saveLabel = modal.isNew ? 'Add' : 'Save';
 

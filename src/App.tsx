@@ -66,7 +66,7 @@ const App: FC = () => {
 
   const fabConfig = !modalOpen && !sidebarOpen
     ? headerProps.isClock
-      ? { label: 'Add hours', onClick: headerProps.onNewEntry }
+      ? { label: 'Log entry', onClick: headerProps.onNewEntry }
       : showProjects
         ? { label: 'New project', onClick: headerProps.onNewProject }
         : showServices

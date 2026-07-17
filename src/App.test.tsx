@@ -168,12 +168,12 @@ describe('App FAB integration', () => {
     mockedUseAppState.mockImplementation((_settings: AppSettings) => makeViewModel())
   })
 
-  test('shows Add hours on mobile for the clock week view', () => {
+  test('shows Log entry on mobile for the clock week view', () => {
     mockedUseAppState.mockReturnValue(makeViewModel())
 
     render(<App />)
 
-    expect(screen.getByRole('button', { name: 'Add hours' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log entry' })).toBeInTheDocument()
   })
 
   test('shows New project on the projects screen', () => {
@@ -223,7 +223,7 @@ describe('App FAB integration', () => {
     for (const scenario of scenarios) {
       mockedUseAppState.mockReturnValue(scenario)
       const { unmount } = render(<App />)
-      expect(screen.queryByRole('button', { name: /Add hours|New project|New service|New customer/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Log entry|New project|New service|New customer/ })).not.toBeInTheDocument()
       unmount()
     }
   })
@@ -236,6 +236,6 @@ describe('App FAB integration', () => {
 
     render(<App />)
 
-    expect(screen.queryByRole('button', { name: 'Add hours' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Log entry' })).not.toBeInTheDocument()
   })
 })
