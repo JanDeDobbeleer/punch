@@ -57,10 +57,10 @@ describe('AppHeader', () => {
   test('hides the primary clock CTA on mobile and shows it on desktop', () => {
     const { rerender } = render(<AppHeader {...makeProps({ isMobile: true })} />)
 
-    expect(screen.queryByRole('button', { name: '+ Log entry' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Log entry' })).not.toBeInTheDocument()
 
     rerender(<AppHeader {...makeProps({ isMobile: false })} />)
 
-    expect(screen.getByRole('button', { name: '+ Log entry' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log entry' })).toBeInTheDocument()
   })
 })
