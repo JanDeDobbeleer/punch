@@ -85,6 +85,8 @@ describe('earnings helpers', () => {
   test('aggregateBy groups by project and keeps services as separate groups', () => {
     const rows = aggregateBy(entries, projects, services, customers, 'project', HOURS_PER_DAY);
     expect(rows.map((row) => row.id)).toEqual(['service:s1', 'p1', 'p3', 'p2']);
+    expect(rows.find((row) => row.id === 'p1')?.count).toBe(1);
+    expect(rows.find((row) => row.id === 'service:s1')?.count).toBe(1);
   });
 
   test('aggregateBy returns 0 shares when total earnings is 0', () => {

@@ -140,6 +140,13 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
       dotStyle: { width: '10px', height: '10px', borderRadius: '3px', background: group.color, flexShrink: 0 },
       hours: fmtH(group.minutes),
       days: (group.minutes / 60 / hoursPerDay).toFixed(1),
+      rate: groupBy === 'customer'
+        ? '—'
+        : group.id.startsWith('service:') || group.id.startsWith('customer-fee:')
+          ? fmtEUR(group.earn / group.count)
+          : group.minutes > 0
+            ? fmtEUR(group.earn / (group.minutes / 60 / hoursPerDay))
+            : '—',
       earn: fmtEUR(group.earn),
       share: `${Math.round(group.sharePct)}%`,
     }));
@@ -301,7 +308,7 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
             className="earnings-breakdown-header"
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(0,2.2fr) 1fr 0.8fr 1.1fr 0.7fr',
+              gridTemplateColumns: 'minmax(0,2.2fr) 1fr 0.8fr 1fr 1.1fr 0.7fr',
               gap: '16px',
               padding: '0 4px 10px',
               fontSize: '11px',
@@ -314,6 +321,7 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
             <div>{groupBy === 'customer' ? 'Customer' : 'Project'}</div>
             <div style={{ textAlign: 'right' }}>Hours</div>
             <div style={{ textAlign: 'right' }}>Days</div>
+            <div style={{ textAlign: 'right' }}>Rate</div>
             <div style={{ textAlign: 'right' }}>Earnings</div>
             <div style={{ textAlign: 'right' }}>Share</div>
           </div>
@@ -325,7 +333,7 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
                 className="earnings-breakdown-row"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'minmax(0,2.2fr) 1fr 0.8fr 1.1fr 0.7fr',
+                  gridTemplateColumns: 'minmax(0,2.2fr) 1fr 0.8fr 1fr 1.1fr 0.7fr',
                   gap: '16px',
                   alignItems: 'center',
                   padding: '14px 16px',
@@ -342,6 +350,7 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
                 </div>
                 <div style={{ textAlign: 'right', fontSize: '13px', color: '#626873', fontFamily: "'Geist Mono',monospace" }}>{row.hours}</div>
                 <div style={{ textAlign: 'right', fontSize: '13px', color: '#626873', fontFamily: "'Geist Mono',monospace" }}>{row.days}</div>
+                <div style={{ textAlign: 'right', fontSize: '13px', color: '#626873', fontFamily: "'Geist Mono',monospace" }}>{row.rate}</div>
                 <div style={{ textAlign: 'right', fontSize: '14px', fontWeight: 600, fontFamily: "'Geist Mono',monospace" }}>{row.earn}</div>
                 <div style={{ textAlign: 'right', fontSize: '13px', color: '#626873', fontFamily: "'Geist Mono',monospace" }}>{row.share}</div>
               </div>

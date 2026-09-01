@@ -547,6 +547,7 @@ export interface EarningsRowVM {
   dotStyle: CSSProperties;
   hours: string;
   days: string;
+  rate: string;
   earn: string;
   share: string; // e.g. "42%"
 }

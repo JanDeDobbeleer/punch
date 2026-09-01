@@ -26,6 +26,7 @@ export interface EarningsGroup {
   color: string; // customer color (own, or owning customer's color for a project)
   minutes: number;
   earn: number;
+  count: number;
   sharePct: number; // 0-100 of total earn (0 when total earn is 0)
 }
 
@@ -153,8 +154,9 @@ export function aggregateBy(
     if (existing) {
       existing.minutes += minutes;
       existing.earn += earn;
+      existing.count += 1;
     } else {
-      buckets.set(id, { id, name, color, minutes, earn, sharePct: 0 });
+      buckets.set(id, { id, name, color, minutes, earn, count: 1, sharePct: 0 });
     }
   });
 

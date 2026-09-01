@@ -512,7 +512,7 @@ textarea:focus-visible {
     display: none !important;
   }
 
-  /* Earnings breakdown: collapse 5-col table → name + earnings */
+  /* Earnings breakdown: collapse 6-col table → name + earnings */
   .earnings-breakdown-header {
     display: none !important;
   }
@@ -522,10 +522,11 @@ textarea:focus-visible {
     gap: 8px !important;
   }
 
-  /* hide hours (2), days (3), share (5) — keep name (1) + earnings (4) */
+  /* hide hours (2), days (3), rate (4), share (6) — keep name (1) + earnings (5) */
   .earnings-breakdown-row > :nth-child(2),
   .earnings-breakdown-row > :nth-child(3),
-  .earnings-breakdown-row > :nth-child(5) {
+  .earnings-breakdown-row > :nth-child(4),
+  .earnings-breakdown-row > :nth-child(6) {
     display: none !important;
   }
 
