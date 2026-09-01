@@ -61,7 +61,9 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
   const [toISO, setToISO] = useState(defaultPeriod.to);
   const [customerId, setCustomerId] = useState(initialFilter?.customerId ?? '');
   const [projectId, setProjectId] = useState(initialFilter?.projectId ?? '');
-  const [groupBy, setGroupBy] = useState<GroupBy>('customer');
+  // Breakdown grouping follows the customer filter: all customers → one line
+  // per customer; a single customer → one line per project/service.
+  const groupBy: GroupBy = customerId ? 'project' : 'customer';
 
   // Re-sync when a new filter is pushed in (e.g. "View earnings" clicked from
   // a customer/project detail page).
@@ -290,9 +292,8 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
         <section style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <div style={{ fontSize: '15px', fontWeight: 600 }}>Breakdown</div>
-            <div className="pill-group" style={pillGroupStyle}>
-              <button type="button" style={pillStyle(groupBy === 'customer')} onClick={() => setGroupBy('customer')}>By customer</button>
-              <button type="button" style={pillStyle(groupBy === 'project')} onClick={() => setGroupBy('project')}>By project</button>
+            <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+              {groupBy === 'customer' ? 'By customer' : 'By project'}
             </div>
           </div>
 
