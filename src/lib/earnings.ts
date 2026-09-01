@@ -26,7 +26,11 @@ export interface EarningsGroup {
   color: string; // customer color (own, or owning customer's color for a project)
   minutes: number;
   earn: number;
-  count: number;
+  count: number; // entries in this group; used to average rate-less customer fees
+  // The rate that applies to every entry in this group (€/day for projects,
+  // €/item for services). Null when the group mixes rates (customer rows) or
+  // has no rate table (customer fees).
+  rate: number | null;
   sharePct: number; // 0-100 of total earn (0 when total earn is 0)
 }
 
@@ -97,7 +101,8 @@ export function summarize(
 }
 
 // groupBy 'customer' buckets by owning customer; 'project' buckets by project
-// or service.
+// or service *and by rate*, so a project whose rate changed mid-period yields
+// one row per rate — matching how it must be billed as separate line items.
 // Rows are sorted by earnings descending. sharePct is computed against the
 // summed earn of all returned rows (0 when the total is 0).
 export function aggregateBy(
@@ -147,7 +152,16 @@ export function aggregateBy(
             : (project?.name ?? 'Unknown'));
     const color = customer?.color ?? '#9ca3af';
 
-    const existing = buckets.get(id);
+    // Customer fees carry a per-entry amount rather than a rate table, so they
+    // stay in one bucket; projects/services split per distinct rate.
+    const rate = groupBy === 'customer' || entry.kind === 'customer'
+      ? null
+      : entry.kind === 'service'
+        ? (service ? rateForDate(service.rates, entry.date) : 0)
+        : (project ? rateForDate(project.rates, entry.date) : 0);
+    const bucketId = rate === null ? id : `${id}#${rate}`;
+
+    const existing = buckets.get(bucketId);
     const minutes = entry.minutes;
     const earn = entryEarnValue(entry, project, service, hoursPerDay);
 
@@ -156,7 +170,7 @@ export function aggregateBy(
       existing.earn += earn;
       existing.count += 1;
     } else {
-      buckets.set(id, { id, name, color, minutes, earn, count: 1, sharePct: 0 });
+      buckets.set(bucketId, { id: bucketId, name, color, minutes, earn, count: 1, rate, sharePct: 0 });
     }
   });
 

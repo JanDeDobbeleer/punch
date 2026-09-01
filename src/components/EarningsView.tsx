@@ -140,13 +140,11 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
       dotStyle: { width: '10px', height: '10px', borderRadius: '3px', background: group.color, flexShrink: 0 },
       hours: fmtH(group.minutes),
       days: (group.minutes / 60 / hoursPerDay).toFixed(1),
-      rate: groupBy === 'customer'
-        ? '—'
-        : group.id.startsWith('service:') || group.id.startsWith('customer-fee:')
+      rate: group.rate !== null
+        ? fmtEUR(group.rate)
+        : group.id.startsWith('customer-fee:') && group.count > 0
           ? fmtEUR(group.earn / group.count)
-          : group.minutes > 0
-            ? fmtEUR(group.earn / (group.minutes / 60 / hoursPerDay))
-            : '—',
+          : '—',
       earn: fmtEUR(group.earn),
       share: `${Math.round(group.sharePct)}%`,
     }));

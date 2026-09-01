@@ -84,9 +84,55 @@ describe('earnings helpers', () => {
 
   test('aggregateBy groups by project and keeps services as separate groups', () => {
     const rows = aggregateBy(entries, projects, services, customers, 'project', HOURS_PER_DAY);
-    expect(rows.map((row) => row.id)).toEqual(['service:s1', 'p1', 'p3', 'p2']);
-    expect(rows.find((row) => row.id === 'p1')?.count).toBe(1);
-    expect(rows.find((row) => row.id === 'service:s1')?.count).toBe(1);
+    expect(rows.map((row) => row.id)).toEqual(['service:s1#900', 'p1#800', 'p3#400', 'p2#600']);
+    expect(rows.find((row) => row.id === 'p1#800')?.rate).toBe(800);
+    expect(rows.find((row) => row.id === 'service:s1#900')?.rate).toBe(900);
+  });
+
+  test('aggregateBy by customer leaves the rate null', () => {
+    const rows = aggregateBy(entries, projects, services, customers, 'customer', HOURS_PER_DAY);
+    expect(rows.every((row) => row.rate === null)).toBe(true);
+  });
+
+  test('aggregateBy splits one project into a row per rate when the rate changes mid-period', () => {
+    const rateChangeProjects: Project[] = [{
+      id: 'p9',
+      name: 'Retainer',
+      customerId: 'c1',
+      rates: [
+        { id: 'r9a', amount: 800, from: '2026-01-01', to: '2026-01-31' },
+        { id: 'r9b', amount: 900, from: '2026-02-01', to: null },
+      ],
+    }];
+    const rateChangeEntries: Entry[] = [
+      { id: 'x1', kind: 'project', date: '2026-01-15', projectId: 'p9', serviceId: null, customerId: null, amount: null, minutes: 480, comment: '', attachments: [] },
+      { id: 'x2', kind: 'project', date: '2026-01-20', projectId: 'p9', serviceId: null, customerId: null, amount: null, minutes: 240, comment: '', attachments: [] },
+      { id: 'x3', kind: 'project', date: '2026-02-10', projectId: 'p9', serviceId: null, customerId: null, amount: null, minutes: 480, comment: '', attachments: [] },
+    ];
+    const rows = aggregateBy(rateChangeEntries, rateChangeProjects, [], customers, 'project', HOURS_PER_DAY);
+
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.name === 'Retainer')).toBe(true);
+
+    const at900 = rows.find((row) => row.rate === 900)!;
+    const at800 = rows.find((row) => row.rate === 800)!;
+    expect(at900.minutes).toBe(480);
+    expect(at900.earn).toBeCloseTo(900);
+    expect(at800.minutes).toBe(720);
+    expect(at800.earn).toBeCloseTo(1200);
+    expect(rows.reduce((sum, row) => sum + row.earn, 0)).toBeCloseTo(2100);
+  });
+
+  test('aggregateBy keeps customer fees in a single row with no rate', () => {
+    const feeEntries: Entry[] = [
+      { id: 'f1', kind: 'customer', date: '2026-01-05', projectId: null, serviceId: null, customerId: 'c1', amount: 150, minutes: 0, comment: '', attachments: [] },
+      { id: 'f2', kind: 'customer', date: '2026-01-09', projectId: null, serviceId: null, customerId: 'c1', amount: 250, minutes: 0, comment: '', attachments: [] },
+    ];
+    const rows = aggregateBy(feeEntries, projects, services, customers, 'project', HOURS_PER_DAY);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].rate).toBeNull();
+    expect(rows[0].count).toBe(2);
+    expect(rows[0].earn).toBeCloseTo(400);
   });
 
   test('aggregateBy returns 0 shares when total earnings is 0', () => {
