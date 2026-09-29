@@ -26,6 +26,13 @@ coding agent (GitHub Copilot, etc.) working in this repository.
   via the Standard-plan password-protection feature). `staticwebapp.config.json`
   gates **every** route (`/*` and `/api/*`) behind `allowedRoles: ["owner"]`.
   There is intentionally no multi-tenant/multi-user support.
+- **MCP server**: `/api/mcp` is a stateless Streamable HTTP MCP endpoint for
+  claude.ai / Claude Desktop custom connectors. It does **not** use the SWA
+  cookie session: `/api/mcp` and `/api/oauth/*` are `anonymous` in
+  `staticwebapp.config.json` and do their own auth via a minimal OAuth 2.1
+  authorization server (PKCE, DCR, stateless HS256 JWTs) that delegates login
+  to a dedicated GitHub OAuth App and admits only
+  `PUNCH_MCP_ALLOWED_GITHUB_USER_ID`. See `docs/mcp.md`.
 - **CI/CD**: `.github/workflows/deploy.yml` builds and deploys on every push
   to `main` (and manages PR preview environments) via
   `Azure/static-web-apps-deploy@v1`. It requires the
@@ -50,6 +57,13 @@ api/                       # Azure Functions API
   src/functions/state.ts       # GET/PUT /api/state (ETag concurrency)
   src/functions/attachments.ts # POST /api/attachments (SAS upload ticket),
                                 #   GET/DELETE /api/attachments/{entryId}/{attachmentId}
+  src/functions/oauth.ts       # OAuth AS for MCP clients (metadata, register, authorize,
+                                #   GitHub callback, token) — see docs/mcp.md
+  src/functions/mcp.ts         # /api/mcp — Bearer-authenticated MCP endpoint
+  src/mcp/tools.ts             # MCP tool definitions (read + entry CRUD)
+  src/oauth/                   # JWT/PKCE/redirect-allowlist helpers
+  src/stateStore.ts        # Blob read/write for state.json + state.YYYY.json
+                            #   (shared by state.ts and the MCP tools)
   src/blobClient.ts        # Shared BlobServiceClient factory (connection string or
                             #   managed identity + DefaultAzureCredential)
   src/auth.ts              # Reads SWA's x-ms-client-principal header; requireOwner() guard
@@ -130,6 +144,12 @@ contract including CSS class names, FAB rules, and common mistakes.
   formula inline. `customerId` is `null` on `'project'` entries (reach it via
   `project.customerId`); it is set directly on `'service'` and `'customer'`
   entries.
+
+- **Shared pure libs**: the API's `tsconfig.json` (`rootDir: ".."`) also
+  compiles `src/types.ts`, `src/lib/dates.ts`, `rates.ts` and `earnings.ts`
+  so MCP tools reuse `entryEarnValue()`. Those files must stay free of
+  React/DOM runtime imports and use `.js` suffixes on relative imports
+  (NodeNext). API output lands in `api/dist/api/src/functions/`.
 
 - **New entries get their `id` assigned immediately** in `openEntry()` (not at
   save time), so attachments can be uploaded to `{entryId}/...` before the
