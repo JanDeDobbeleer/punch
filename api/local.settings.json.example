@@ -5,7 +5,13 @@
     "FUNCTIONS_WORKER_RUNTIME": "node",
     "STORAGE_CONNECTION_STRING": "UseDevelopmentStorage=true",
     "STATE_CONTAINER": "state",
-    "ATTACHMENTS_CONTAINER": "attachments"
+    "ATTACHMENTS_CONTAINER": "attachments",
+    "PUNCH_MCP_BASE_URL": "http://localhost:4280",
+    "PUNCH_MCP_JWT_SECRET": "replace-with-a-random-string-of-at-least-32-chars",
+    "PUNCH_MCP_GITHUB_CLIENT_ID": "your-github-oauth-app-client-id",
+    "PUNCH_MCP_GITHUB_CLIENT_SECRET": "your-github-oauth-app-client-secret",
+    "PUNCH_MCP_ALLOWED_GITHUB_USER_ID": "12345678",
+    "PUNCH_HOURS_PER_DAY": "8"
   },
   "Host": {
     "CORS": "*"
