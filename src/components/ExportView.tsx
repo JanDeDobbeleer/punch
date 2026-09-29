@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ChangeEvent, typ
 import type { ExportViewProps, ExportScope } from '../types';
 import { daysInMonth, defaultExportPeriod, fmtMonthYear, fmtShortDateYear, parseISO } from '../lib/dates';
 import { entryEarnValue } from '../lib/earnings';
-import { fmtEUR, fmtH } from '../lib/format';
+import { fmtDaysExact, fmtEURCents, fmtH } from '../lib/format';
 import { buildAttachmentsZip, buildTimesheetPdf, triggerDownload, type TimesheetExportEntry } from '../lib/timesheetExport';
 
 const cardStyle: CSSProperties = {
@@ -262,11 +262,11 @@ const ExportView: FC<ExportViewProps> = ({ customers, projects, services, entrie
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Days</div>
-              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '3px' }}>{(totalMinutes / 60 / hoursPerDay).toFixed(1)}</div>
+              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '3px' }}>{fmtDaysExact(totalMinutes, hoursPerDay)}</div>
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount</div>
-              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '3px' }}>{fmtEUR(totalAmount)}</div>
+              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '3px' }}>{fmtEURCents(totalAmount)}</div>
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Attachments</div>
