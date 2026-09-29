@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "main": "dist/src/functions/*.js",
+  "main": "dist/api/src/functions/*.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch",
@@ -13,10 +13,14 @@
   "dependencies": {
     "@azure/functions": "^4.7.2",
     "@azure/identity": "^4.13.0",
-    "@azure/storage-blob": "^12.28.0"
+    "@azure/storage-blob": "^12.28.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "jose": "^6.2.12",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
+    "@types/react": "^19.3.0",
     "typescript": "~6.0.2",
     "vitest": "^4.1.9"
   }

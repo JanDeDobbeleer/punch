@@ -2,9 +2,9 @@
 // customers already held in memory. Reuses the same formulas as Clock/Export
 // so numbers always match.
 
-import type { Customer, Entry, Project, Service } from '../types';
-import { iso, pad, parseISO } from './dates';
-import { rateForDate } from './rates';
+import type { Customer, Entry, Project, Service } from '../types.js';
+import { iso, pad, parseISO } from './dates.js';
+import { rateForDate } from './rates.js';
 
 export interface EarningsFilter {
   fromISO: string;
