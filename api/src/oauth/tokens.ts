@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { getAllowedGithubUserId, mcpResourceUrl } from './config.js';
-import { signToken, verifyToken } from './jwt.js';
+import { signToken, verifyTokenDetailed, type RejectReason } from './jwt.js';
 
 export const SCOPE = 'punch';
 export const ACCESS_TTL = 3600;
@@ -15,22 +15,32 @@ export interface AccessTokenClaims {
   expiresAt: number; // epoch seconds
 }
 
-export async function verifyAccessToken(token: string): Promise<AccessTokenClaims | null> {
+export type AccessTokenCheck = { claims: AccessTokenClaims } | { reason: RejectReason };
+
+/** Verifies an access token and reports a non-secret rejection reason on failure. */
+export async function checkAccessToken(token: string): Promise<AccessTokenCheck> {
   try {
-    const payload = await verifyToken(token, 'access', mcpResourceUrl());
-    if (!payload) return null;
-    const { sub, exp, cid, scope } = payload as { sub?: unknown; exp?: unknown; cid?: unknown; scope?: unknown };
-    if (typeof sub !== 'string' || typeof exp !== 'number' || typeof cid !== 'string') return null;
-    if (sub !== getAllowedGithubUserId()) return null;
+    const result = await verifyTokenDetailed(token, 'access', mcpResourceUrl());
+    if ('reason' in result) return result;
+    const { sub, exp, cid, scope } = result.payload as { sub?: unknown; exp?: unknown; cid?: unknown; scope?: unknown };
+    if (typeof sub !== 'string' || typeof exp !== 'number' || typeof cid !== 'string') return { reason: 'invalid' };
+    if (sub !== getAllowedGithubUserId()) return { reason: 'subject' };
     return {
-      sub,
-      clientId: cid,
-      scopes: typeof scope === 'string' ? scope.split(' ').filter(Boolean) : [],
-      expiresAt: exp,
+      claims: {
+        sub,
+        clientId: cid,
+        scopes: typeof scope === 'string' ? scope.split(' ').filter(Boolean) : [],
+        expiresAt: exp,
+      },
     };
   } catch {
-    return null;
+    return { reason: 'config' };
   }
+}
+
+export async function verifyAccessToken(token: string): Promise<AccessTokenClaims | null> {
+  const result = await checkAccessToken(token);
+  return 'claims' in result ? result.claims : null;
 }
 
 export interface TokenPair {

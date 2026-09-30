@@ -45,9 +45,10 @@ export function resourceMetadataUrl(): string {
   return `${getBaseUrl()}/.well-known/oauth-protected-resource`;
 }
 
-export function wwwAuthenticateHeader(error?: string): string {
+export function wwwAuthenticateHeader(error?: string, description?: string): string {
   const base = `Bearer resource_metadata="${resourceMetadataUrl()}"`;
-  return error ? `${base}, error="${error}"` : base;
+  if (!error) return base;
+  return description ? `${base}, error="${error}", error_description="${description}"` : `${base}, error="${error}"`;
 }
 
 export function corsHeaders(): Record<string, string> {

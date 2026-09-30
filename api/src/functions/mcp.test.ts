@@ -17,6 +17,13 @@ vi.mock('@azure/functions', async (importActual) => {
   return { ...actual, app: { http: (name: string, opts: { handler: Handler }) => handlers.set(name, opts.handler) } };
 });
 
+const recorded: string[] = [];
+vi.mock('../oauth/markers.js', () => ({
+  getAuthContainer: async () => ({
+    getBlockBlobClient: () => ({ upload: async (body: string) => { recorded.push(body); } }),
+  }),
+}));
+
 vi.mock('../stateStore.js', () => ({
   ConflictError: class ConflictError extends Error {},
   readMainState: async () => ({
@@ -89,6 +96,26 @@ describe('/api/mcp', () => {
     const res = await mcp()(rpc(initialize, other), ctx);
     expect(res.status).toBe(401);
     expect(res.headers?.['WWW-Authenticate']).toContain('error="invalid_token"');
+  });
+
+  test('401 explains why a token was rejected without leaking it', async () => {
+    const other = (await issueTokenPair('999', 'client-x')).access_token;
+    const cases: Array<[string, string]> = [
+      [other, 'subject'],
+      ['not-a-jwt', 'malformed'],
+      [token.slice(0, -4) + 'AAAA', 'signature'],
+      [await signToken('access', { cid: 'c' }, { ttlSeconds: 60, subject: '42', audience: 'https://elsewhere/api/mcp' }), 'audience'],
+      [await signToken('access', { cid: 'c' }, { ttlSeconds: -60, subject: '42', audience: 'https://punch.example.com/api/mcp' }), 'expired'],
+      [await signToken('refresh', { cid: 'c' }, { ttlSeconds: 60, subject: '42', audience: 'https://punch.example.com/api/mcp' }), 'type'],
+    ];
+    for (const [bearer, reason] of cases) {
+      const res = await mcp()(rpc(initialize, bearer), ctx);
+      expect(res.status).toBe(401);
+      expect(res.headers?.['WWW-Authenticate']).toContain(`error_description="${reason}; len=${bearer.length}"`);
+      expect(res.headers?.['WWW-Authenticate']).not.toContain(bearer);
+      expect(JSON.parse(recorded.at(-1)!).description).toBe(`${reason}; len=${bearer.length}`);
+      expect(recorded.at(-1)).not.toContain(bearer);
+    }
   });
 
   test('refresh token is not accepted as access token', async () => {
