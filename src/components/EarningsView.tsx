@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ChangeEvent, type CSSProperties, typ
 
 import type { EarningsRowVM, EarningsViewProps } from '../types';
 import { daysInMonth, defaultExportPeriod, fmtMonthYear, fmtShortDateYear, monthBounds, parseISO, quarterBounds, yearBounds } from '../lib/dates';
-import { fmtEUR, fmtH } from '../lib/format';
+import { fmtDaysExact, fmtEURCents, fmtH } from '../lib/format';
 import { aggregateBy, buildChartData, filterEntries, summarize } from '../lib/earnings';
 import EarningsChart from './EarningsChart';
 
@@ -139,13 +139,13 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
       name: group.name,
       dotStyle: { width: '10px', height: '10px', borderRadius: '3px', background: group.color, flexShrink: 0 },
       hours: fmtH(group.minutes),
-      days: (group.minutes / 60 / hoursPerDay).toFixed(1),
+      days: fmtDaysExact(group.minutes, hoursPerDay),
       rate: group.rate !== null
-        ? fmtEUR(group.rate)
+        ? fmtEURCents(group.rate)
         : group.id.startsWith('customer-fee:') && group.count > 0
-          ? fmtEUR(group.earn / group.count)
+          ? fmtEURCents(group.earn / group.count)
           : '—',
-      earn: fmtEUR(group.earn),
+      earn: fmtEURCents(group.earn),
       share: `${Math.round(group.sharePct)}%`,
     }));
   }, [customers, filteredEntries, groupBy, hoursPerDay, projects, services]);
@@ -265,7 +265,7 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Earnings</div>
-              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '3px' }}>{fmtEUR(summary.earn)}</div>
+              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '3px' }}>{fmtEURCents(summary.earn)}</div>
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hours</div>
@@ -273,7 +273,7 @@ const EarningsView: FC<EarningsViewProps> = ({ customers, projects, services, en
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Days</div>
-              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '3px' }}>{summary.days.toFixed(1)}</div>
+              <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '3px' }}>{fmtDaysExact(summary.minutes, hoursPerDay)}</div>
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Entries</div>

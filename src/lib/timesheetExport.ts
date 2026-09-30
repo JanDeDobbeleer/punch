@@ -12,7 +12,7 @@ import JSZip from 'jszip';
 
 import type { AttachmentRef, Customer, Entry, Project, Service } from '../types';
 import { entryEarnValue } from './earnings';
-import { fmtEUR, fmtH } from './format';
+import { fmtDaysExact, fmtEURCents, fmtH } from './format';
 import { fmtShortDateYear, parseISO } from './dates';
 import * as store from './store';
 import logoUrl from '../assets/itdepends-logo.png';
@@ -213,7 +213,7 @@ export async function buildTimesheetPdf(options: TimesheetExportOptions): Promis
     const commentLines = row.description
       ? drawWrapped(page, row.description, columns[2].x + 4, rowTop, columns[2].width - 8, font, 10)
       : 1;
-    const amountText = fmtEUR(row.amount);
+    const amountText = fmtEURCents(row.amount);
     const amountWidth = font.widthOfTextAtSize(amountText, 10);
     page.drawText(amountText, { x: columns[3].x + columns[3].width - 4 - amountWidth, y: rowTop, size: 10, font, color: INK });
 
@@ -233,8 +233,8 @@ export async function buildTimesheetPdf(options: TimesheetExportOptions): Promis
   page.drawLine({ start: { x: MARGIN, y }, end: { x: MARGIN + CONTENT_WIDTH, y }, thickness: 1, color: INK });
   y -= 22;
 
-  const totalDays = (totalMinutes / 60 / hoursPerDay).toFixed(1);
-  const totalsText = `Total hours: ${fmtH(totalMinutes)}   ·   Total days: ${totalDays}   ·   Total amount: ${fmtEUR(totalAmount)}`;
+  const totalDays = fmtDaysExact(totalMinutes, hoursPerDay);
+  const totalsText = `Total hours: ${fmtH(totalMinutes)}   ·   Total days: ${totalDays}   ·   Total amount: ${fmtEURCents(totalAmount)}`;
   page.drawText(totalsText, { x: MARGIN, y, size: 11, font: bold, color: INK });
 
   const count = attachmentCount(entries);

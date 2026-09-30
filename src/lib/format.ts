@@ -33,6 +33,20 @@ export function fmtEUR(n: number): string {
   return `€${Math.round(n).toLocaleString('en-US')}`;
 }
 
+// Renders days unrounded (up to 5 decimals, no suffix) so that days x day rate
+// reproduces the billed amount. Number() normalises "-0" and String() only uses
+// exponent notation below 1e-6, which the 5-decimal rounding rules out.
+export function fmtDaysExact(min: number, hoursPerDay: number): string {
+  const days = Math.round((min / 60 / hoursPerDay) * 1e5) / 1e5;
+  return String(days === 0 ? 0 : days);
+}
+
+// Like fmtEUR but keeps the cents (e.g. "€8,401.25").
+export function fmtEURCents(n: number): string {
+  const cents = Math.round(n * 100) / 100;
+  return `€${cents.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export function hexToRgba(hex: string, a: number): string {
   const clean = hex.replace('#', '');
   const r = Number.parseInt(clean.slice(0, 2), 16);
