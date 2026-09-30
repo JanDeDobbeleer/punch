@@ -27,6 +27,11 @@ async function recordFailure(
       contentType: request.headers.get('content-type'),
       authScheme: (request.headers.get('authorization') ?? '').split(' ')[0] || null,
       headerNames: [...request.headers.keys()].sort(),
+      // Lengths only (never values): shows whether SWA rewrote or relocated the client's bearer token.
+      authHeaderLengths: Object.fromEntries(
+        ['authorization', 'x-ms-auth-token', 'x-ms-client-principal-id', 'x-ms-client-principal-idp']
+          .map((h) => [h, request.headers.get(h)?.length ?? null]),
+      ),
       at: new Date().toISOString(),
     });
     const container = await getAuthContainer();
