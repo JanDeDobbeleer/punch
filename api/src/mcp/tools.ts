@@ -12,6 +12,7 @@ import { currentRatePeriod, rateForDate } from '../../../src/lib/rates.js';
 
 export interface McpDeps {
   readMainState(): Promise<{ data: PersistedData; etag: string }>;
+  readMainStateUnfiltered(): Promise<{ data: PersistedData; etag: string }>;
   readYearEntries(year: number): Promise<{ entries: unknown[]; etag: string }>;
   writeMainState(data: PersistedData, etag: string | null): Promise<string>;
   writeYearState(year: number, payload: { entries: unknown[] }, etag: string | null): Promise<string>;
@@ -22,6 +23,7 @@ export interface McpDeps {
 
 export const defaultDeps: McpDeps = {
   readMainState: () => stateStore.readMainState(),
+  readMainStateUnfiltered: () => stateStore.readMainStateUnfiltered(),
   readYearEntries: (y) => stateStore.readYearEntries(y),
   writeMainState: (d, e) => stateStore.writeMainState(d, e),
   writeYearState: (y, p, e) => stateStore.writeYearState(y, p, e),
@@ -44,7 +46,9 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use ISO date yyyy-mm-dd
 
 function validDate(s: string): boolean {
   const d = new Date(`${s}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) return false;
+  const y = Number(s.slice(0, 4));
+  return y >= 2000 && y <= 2100;
 }
 
 function yearOf(date: string): number {
@@ -72,11 +76,12 @@ function catalogOf(data: PersistedData): Catalog {
   const customers = data.customers as Customer[];
   const projects = data.projects as Project[];
   const services = (data.services ?? []) as Service[];
-  const projById: Record<string, Project> = {};
+  // Null-prototype maps: ids like "constructor" or "__proto__" must not resolve.
+  const projById: Record<string, Project> = Object.create(null);
   projects.forEach((p) => { projById[p.id] = p; });
-  const serviceById: Record<string, Service> = {};
+  const serviceById: Record<string, Service> = Object.create(null);
   services.forEach((s) => { serviceById[s.id] = s; });
-  const custById: Record<string, Customer> = {};
+  const custById: Record<string, Customer> = Object.create(null);
   customers.forEach((c) => { custById[c.id] = c; });
   return { customers, projects, services, projById, serviceById, custById };
 }
@@ -85,21 +90,35 @@ function withDefaults(e: Entry): Entry {
   return { ...e, attachments: e.attachments ?? [] };
 }
 
-// Loads main state plus every past-year blob that overlaps [from, to].
+// Lazily reads state.json without the year filter (once per operation) so entries of a
+// year whose blob does not exist yet (pre-migration) can be seen and preserved.
+function unfilteredLoader(deps: McpDeps) {
+  let cached: Promise<Entry[]> | null = null;
+  return async (year: number): Promise<Entry[]> => {
+    cached ??= deps.readMainStateUnfiltered().then((r) => r.data.entries as Entry[]);
+    return (await cached).filter((e) => typeof e?.date === 'string' && yearOf(e.date) === year);
+  };
+}
+
+// Loads main state plus every other-year blob that overlaps [from, to]. Missing year blobs
+// fall back to pre-migration entries still stored in state.json.
 async function loadRange(deps: McpDeps, from: string, to: string) {
   const main = await deps.readMainState();
   const cur = deps.currentYear();
+  const legacy = unfilteredLoader(deps);
   const entries: Entry[] = [...(main.data.entries as Entry[])];
   for (let y = yearOf(from); y <= yearOf(to); y += 1) {
     if (y === cur) continue;
     const res = await deps.readYearEntries(y);
-    entries.push(...(res.entries as Entry[]));
+    entries.push(...((res.etag === '' ? await legacy(y) : res.entries) as Entry[]));
   }
-  return { data: main.data, catalog: catalogOf(main.data), entries: entries.map(withDefaults) };
+  const seen = new Set<string>();
+  const unique = entries.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
+  return { data: main.data, catalog: catalogOf(main.data), entries: unique.map(withDefaults) };
 }
 
 function checkRange(from: string, to: string): string | null {
-  if (!validDate(from) || !validDate(to)) return 'from/to must be valid ISO dates (yyyy-mm-dd).';
+  if (!validDate(from) || !validDate(to)) return 'from/to must be valid ISO dates (yyyy-mm-dd, years 2000-2100).';
   if (to < from) return '"to" must not be before "from".';
   const days = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000 + 1;
   if (days > MAX_RANGE_DAYS) return `Range too large (${days} days); the maximum is ${MAX_RANGE_DAYS} days.`;
@@ -111,12 +130,14 @@ function checkRange(from: string, to: string): string | null {
 class Tx {
   private years = new Map<number, { entries: Entry[]; etag: string }>();
   readonly dirty: number[] = [];
+  private legacy: (year: number) => Promise<Entry[]>;
   constructor(
     private deps: McpDeps,
     readonly main: { data: PersistedData; etag: string },
     readonly catalog: Catalog,
   ) {
     this.years.set(deps.currentYear(), { entries: main.data.entries as Entry[], etag: main.etag });
+    this.legacy = unfilteredLoader(deps);
   }
 
   blobYear(date: string): number {
@@ -127,7 +148,10 @@ class Tx {
     let b = this.years.get(year);
     if (!b) {
       const res = await this.deps.readYearEntries(year);
-      b = { entries: res.entries as Entry[], etag: res.etag };
+      // Missing blob: seed with pre-migration entries from state.json so the create-only
+      // write cannot orphan them. An existing blob is used as-is.
+      const entries = res.etag === '' ? structuredClone(await this.legacy(year)) : (res.entries as Entry[]);
+      b = { entries, etag: res.etag };
       this.years.set(year, b);
     }
     return b.entries;
@@ -422,9 +446,9 @@ export function registerTools(server: McpServer, deps: McpDeps = defaultDeps): v
     projectId: z.string().optional().describe('Required for kind "project".'),
     serviceId: z.string().optional().describe('Required for kind "service".'),
     customerId: z.string().optional().describe('Required for kinds "service" and "customer". Not used for "project" (derived from the project).'),
-    hours: z.number().positive().optional().describe('Duration in hours, e.g. 2.5. Required for project/service. Ignored for holiday (always a full day).'),
-    amount: z.number().positive().optional().describe('Flat fee in EUR, required for kind "customer".'),
-    comment: z.string().optional(),
+    hours: z.number().positive().max(24).optional().describe('Duration in hours, e.g. 2.5. Required for project/service. Ignored for holiday (always a full day).'),
+    amount: z.number().positive().max(1_000_000).optional().describe('Flat fee in EUR, required for kind "customer".'),
+    comment: z.string().max(2000).optional(),
   };
 
   server.registerTool('log_entry', {

@@ -20,7 +20,7 @@ function mkEntry(over: Partial<Entry>): Entry {
   };
 }
 
-function makeDeps(opts: { main?: Entry[]; years?: Record<number, Entry[]>; failWrites?: number } = {}) {
+function makeDeps(opts: { main?: Entry[]; years?: Record<number, Entry[]>; failWrites?: number; legacy?: Entry[] } = {}) {
   const state = {
     main: opts.main ?? [],
     years: { ...(opts.years ?? {}) } as Record<number, Entry[]>,
@@ -38,6 +38,10 @@ function makeDeps(opts: { main?: Entry[]; years?: Record<number, Entry[]>; failW
         },
         etag: '"m1"',
       };
+    },
+    async readMainStateUnfiltered() {
+      const d = await deps.readMainState();
+      return { data: { ...d.data, entries: [...(d.data.entries as Entry[]), ...structuredClone(opts.legacy ?? [])] }, etag: d.etag };
     },
     async readYearEntries(year) {
       const e = state.years[year];
@@ -178,6 +182,50 @@ describe('mcp tools', () => {
     expect(state.years[2027].map((e) => e.id)).toEqual(['m']);
     const found = await call('update_entry', { id: 'm', comment: 'found in future blob' });
     expect(found.isError).toBe(false);
+  });
+
+  it('seeds a missing year blob with pre-migration entries from state.json', async () => {
+    const old = mkEntry({ id: 'old', date: '2025-06-01' });
+    const { deps, state } = makeDeps({ legacy: [old] });
+    const call = await connect(deps);
+    const listed = await call('list_entries', { from: '2025-01-01', to: '2025-12-31' });
+    expect(listed.json().map((e: { id: string }) => e.id)).toEqual(['old']);
+    const r = await call('log_entry', { date: '2025-07-01', kind: 'project', projectId: 'p1', hours: 1 });
+    expect(r.isError).toBe(false);
+    expect(state.writes).toHaveLength(1);
+    expect(state.writes[0]).toMatchObject({ year: 2025, etag: null });
+    expect(state.years[2025].map((e) => e.id).sort()).toEqual(['new1', 'old']);
+  });
+
+  it('does not merge legacy main entries when the year blob exists', async () => {
+    const old = mkEntry({ id: 'old', date: '2025-06-01' });
+    const inBlob = mkEntry({ id: 'blob', date: '2025-05-01' });
+    const { deps, state } = makeDeps({ legacy: [old], years: { 2025: [inBlob] } });
+    const call = await connect(deps);
+    await call('log_entry', { date: '2025-07-01', kind: 'project', projectId: 'p1', hours: 1 });
+    expect(state.years[2025].map((e) => e.id).sort()).toEqual(['blob', 'new1']);
+  });
+
+  it('rejects prototype-key ids', async () => {
+    const { deps, state } = makeDeps();
+    const call = await connect(deps);
+    for (const id of ['constructor', '__proto__', 'toString']) {
+      const r = await call('log_entry', { date: '2026-03-02', kind: 'project', projectId: id, hours: 1 });
+      expect(r.isError).toBe(true);
+      expect(r.text).toMatch(/Unknown projectId/);
+    }
+    expect(state.writes).toHaveLength(0);
+  });
+
+  it('enforces bounds on hours, dates and comments', async () => {
+    const { deps, state } = makeDeps();
+    const call = await connect(deps);
+    const base = { date: '2026-03-02', kind: 'project', projectId: 'p1', hours: 1 };
+    expect((await call('log_entry', { ...base, hours: 25 })).isError).toBe(true);
+    expect((await call('log_entry', { ...base, date: '9999-01-01' })).isError).toBe(true);
+    expect((await call('log_entry', { ...base, comment: 'x'.repeat(2001) })).isError).toBe(true);
+    expect((await call('list_entries', { from: '9999-01-01', to: '9999-02-01' })).isError).toBe(true);
+    expect(state.writes).toHaveLength(0);
   });
 
   it('rejects ranges over 366 days', async () => {

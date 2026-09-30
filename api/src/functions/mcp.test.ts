@@ -23,6 +23,7 @@ vi.mock('../stateStore.js', () => ({
     data: { customers: [{ id: 'c1', name: 'Acme', color: '#000' }], projects: [], services: [], entries: [] },
     etag: '"1"',
   }),
+  readMainStateUnfiltered: async () => ({ data: { customers: [], projects: [], services: [], entries: [] }, etag: '"1"' }),
   readYearEntries: async () => ({ entries: [], etag: '' }),
   writeMainState: async () => '"2"',
   writeYearState: async () => '"2"',
@@ -60,6 +61,23 @@ beforeAll(async () => {
 });
 
 describe('/api/mcp', () => {
+  const get = (tok?: string, method = 'GET') => new HttpRequest({
+    method: method as 'GET',
+    url: 'https://punch.example.com/api/mcp',
+    headers: { accept: 'text/event-stream', ...(tok ? { authorization: `Bearer ${tok}` } : {}) },
+  });
+
+  test('authenticated GET/DELETE → 405 promptly with Allow', async () => {
+    const res = await mcp()(get(token), ctx);
+    expect(res.status).toBe(405);
+    expect(res.headers?.Allow).toBe('POST, OPTIONS');
+    expect((await mcp()(get(token, 'DELETE'), ctx)).status).toBe(405);
+  });
+
+  test('unauthenticated GET → 401', async () => {
+    expect((await mcp()(get(), ctx)).status).toBe(401);
+  });
+
   test('no token → 401 with resource_metadata challenge', async () => {
     const res = await mcp()(rpc(initialize), ctx);
     expect(res.status).toBe(401);

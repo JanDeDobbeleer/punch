@@ -28,6 +28,15 @@ async function handler(request: HttpRequest, context: InvocationContext): Promis
     };
   }
 
+  // Only POST is served. GET would open a never-ending SSE stream on the stateless transport.
+  if (request.method !== 'POST') {
+    return {
+      status: 405,
+      jsonBody: { error: 'method_not_allowed' },
+      headers: { Allow: 'POST, OPTIONS', ...corsHeaders() },
+    };
+  }
+
   const server = new McpServer({ name: 'punch', version: '1.0.0' });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
@@ -37,11 +46,11 @@ async function handler(request: HttpRequest, context: InvocationContext): Promis
     registerTools(server);
     await server.connect(transport);
 
-    const hasBody = request.method !== 'GET' && request.method !== 'DELETE' && request.method !== 'HEAD';
+    // Only POST reaches this point (GET/DELETE are answered with 405 above).
     const webRequest = new Request(request.url, {
       method: request.method,
       headers: new Headers(Object.fromEntries(request.headers.entries())),
-      body: hasBody ? await request.text() : undefined,
+      body: await request.text(),
     });
 
     const res = await transport.handleRequest(webRequest, {

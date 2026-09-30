@@ -96,6 +96,36 @@ export async function readMainState(): Promise<{ data: PersistedData; etag: stri
   }
 }
 
+// Same blob as readMainState() but WITHOUT the current-year entry filter, so callers can see
+// pre-split entries of past years that still live in state.json (before the SPA's first PUT).
+export async function readMainStateUnfiltered(): Promise<{ data: PersistedData; etag: string }> {
+  const container = getStateContainerClient();
+  const blob = container.getBlockBlobClient(STATE_BLOB_NAME);
+  try {
+    const download = await blob.download();
+    const raw = await streamToString(download.readableStreamBody);
+    const parsed: unknown = JSON.parse(raw);
+    const etag = download.etag ?? '';
+    if (isPersistedData(parsed)) {
+      return {
+        data: {
+          customers: parsed.customers,
+          projects: parsed.projects,
+          services: parsed.services ?? [],
+          entries: parsed.entries,
+        },
+        etag,
+      };
+    }
+    return { data: emptyState(), etag };
+  } catch (error) {
+    if (error instanceof RestError && error.statusCode === 404) {
+      return { data: emptyState(), etag: '' };
+    }
+    throw error;
+  }
+}
+
 // Reads state.YYYY.json. `rawBody` is the blob body verbatim (absent when the blob is missing).
 export async function readYearEntries(year: number): Promise<{ entries: unknown[]; etag: string; rawBody?: string }> {
   const container = getStateContainerClient();
