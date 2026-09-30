@@ -61,7 +61,11 @@ their own auth. Every other `/api/*` route still requires the `owner` role.
    az staticwebapp appsettings set --name <your-swa-resource> --resource-group <your-resource-group> --setting-names PUNCH_MCP_BASE_URL=https://<your-custom-domain> PUNCH_MCP_JWT_SECRET=<48+ random chars> PUNCH_MCP_GITHUB_CLIENT_ID=<id> PUNCH_MCP_GITHUB_CLIENT_SECRET=<secret> PUNCH_MCP_ALLOWED_GITHUB_USER_ID=<numeric id> PUNCH_HOURS_PER_DAY=8
    ```
 
-   To generate the JWT secret, run `openssl rand -base64 48`.
+   To generate the JWT secret, run `openssl rand -base64 48`. In PowerShell,
+   which has no `openssl`, use
+   `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))`
+   and quote each `NAME=value` argument, since the secret can contain `+`,
+   `/` and `=`.
 4. In Punch, open Settings → Connect MCP. This arms the server for 5 minutes.
 5. Within those 5 minutes, on claude.ai go to Settings → Connectors → Add
    custom connector (or reconnect the existing one) and enter URL
