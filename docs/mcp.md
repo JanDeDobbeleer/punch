@@ -98,9 +98,56 @@ for local development.
 
 ## Function App provisioning
 
-TODO: `az` commands for the Flex Consumption app (create, managed identity and
-role assignment, app settings, deploying the `api/` build with
-`node deploy/prepare-mcp-host.mjs <package>/host.json` applied to the package).
+The MCP host is the Flex Consumption app `punch-mcp`
+(`https://punch-mcp.azurewebsites.net`) in `rg-tempo`. It was created like this
+(Git Bash; `MSYS_NO_PATHCONV=1` stops Git Bash from rewriting `/subscriptions/...`
+into a Windows path):
+
+```bash
+az functionapp create --resource-group rg-tempo --name punch-mcp --storage-account tempoappstorage --runtime node --runtime-version 22 --flexconsumption-location westeurope --deployment-storage-auth-type SystemAssignedIdentity
+```
+
+Grant the app's managed identity blob access to the shared storage account:
+
+```bash
+MSYS_NO_PATHCONV=1 az role assignment create --assignee-object-id "$(az functionapp identity show -g rg-tempo -n punch-mcp --query principalId -o tsv)" --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope "$(az storage account list --query "[?name=='tempoappstorage'].id | [0]" -o tsv)"
+```
+
+App settings. Storage uses the managed identity (`STORAGE_ACCOUNT_URL`), so no
+storage key is stored on this app:
+
+```bash
+az functionapp config appsettings set -g rg-tempo -n punch-mcp --settings PUNCH_FUNCTIONS_ROLE=mcp STORAGE_ACCOUNT_URL=https://tempoappstorage.blob.core.windows.net STATE_CONTAINER=state ATTACHMENTS_CONTAINER=attachments PUNCH_MCP_BASE_URL=https://punch-mcp.azurewebsites.net PUNCH_MCP_ALLOWED_GITHUB_USER_ID=<numeric id> PUNCH_HOURS_PER_DAY=8 "PUNCH_MCP_JWT_SECRET=$(node -e "process.stdout.write(require('crypto').randomBytes(48).toString('base64'))")"
+```
+
+Then set `PUNCH_MCP_GITHUB_CLIENT_ID` and `PUNCH_MCP_GITHUB_CLIENT_SECRET` the
+same way. The GitHub OAuth App's callback URL must be
+`https://punch-mcp.azurewebsites.net/api/oauth/github/callback`.
+
+### Deploying
+
+The package is the built `api/` folder with production dependencies and a
+`host.json` whose `routePrefix` is `""`. Build it in a scratch folder so the
+repo's `host.json` (used by the SWA) keeps the `api` prefix:
+
+```bash
+cd api && npm run build
+```
+
+```bash
+rm -rf ../.mcp-pkg && mkdir ../.mcp-pkg && cp -r dist package.json package-lock.json host.json ../.mcp-pkg/ && (cd ../.mcp-pkg && npm ci --omit=dev --ignore-scripts) && node deploy/prepare-mcp-host.mjs ../.mcp-pkg/host.json
+```
+
+On Windows, zip with the built-in `tar.exe` (it writes the forward-slash paths
+Linux needs), then deploy:
+
+```bash
+cd ../.mcp-pkg && /c/Windows/System32/tar.exe -a -c -f ../mcp-pkg.zip * && cd .. && az functionapp deployment source config-zip -g rg-tempo -n punch-mcp --src mcp-pkg.zip
+```
+
+Flex Consumption has no deployment slots, so there is one MCP host. PR preview
+environments of the SWA still arm connections (same storage account), but the
+connector always talks to `punch-mcp`.
 
 ## Kill switch
 
