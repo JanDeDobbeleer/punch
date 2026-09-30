@@ -6,11 +6,11 @@ test.describe('responsive fab', () => {
 
     await page.goto('/')
 
-    const fab = page.getByRole('button', { name: 'Add hours' })
+    const fab = page.getByRole('button', { name: 'Log entry' })
 
     await expect(fab).toBeVisible()
     await fab.click()
-    await expect(page.getByText('Log hours')).toBeVisible()
+    await expect(page.getByText('Log entry')).toBeVisible()
   })
 
   test('desktop does not render the FAB', async ({ page }, testInfo) => {
