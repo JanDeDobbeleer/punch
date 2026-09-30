@@ -9,7 +9,12 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "react": [
+        "./node_modules/@types/react/index.d.ts"
+      ]
+    }
   },
   "include": [
     "src/**/*.ts",
