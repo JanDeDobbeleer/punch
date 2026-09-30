@@ -126,7 +126,14 @@ same way. The GitHub OAuth App's callback URL must be
 
 ### Deploying
 
-The package is the built `api/` folder with production dependencies and a
+Pushes to `main` deploy `punch-mcp` automatically (`deploy_mcp` job in
+`.github/workflows/deploy.yml`). The job signs in with OIDC as the user-assigned
+managed identity `punch-mcp-deploy`. Its federated credential trusts only
+`repo:JanDeDobbeleer/punch:ref:refs/heads/main`, and it holds only
+`Website Contributor` on `punch-mcp`. Repo secrets: `AZURE_MCP_DEPLOY_CLIENT_ID`,
+`AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` (identifiers, not credentials).
+
+To deploy by hand (for example to test a branch): the package is the built `api/` folder with production dependencies and a
 `host.json` whose `routePrefix` is `""`. Build it in a scratch folder so the
 repo's `host.json` (used by the SWA) keeps the `api` prefix:
 
