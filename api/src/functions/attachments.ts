@@ -15,6 +15,7 @@ import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } 
 import { BlobSASPermissions, generateBlobSASQueryParameters, SASProtocol } from '@azure/storage-blob';
 import { getAttachmentsContainerClient, getBlobServiceClient, getSharedKeyCredential } from '../blobClient.js';
 import { requireOwner } from '../auth.js';
+import { isMcpHost } from '../role.js';
 
 const SAS_TTL_MINUTES = 10;
 
@@ -167,21 +168,21 @@ async function signBlobUrl(
   return `${blobUrl}?${sas}`;
 }
 
-app.http('createAttachmentUploadUrl', {
+if (!isMcpHost()) app.http('createAttachmentUploadUrl', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'attachments',
   handler: createUploadUrl,
 });
 
-app.http('getAttachmentDownloadUrl', {
+if (!isMcpHost()) app.http('getAttachmentDownloadUrl', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'attachments/{entryId}/{attachmentId}',
   handler: getDownloadUrl,
 });
 
-app.http('deleteAttachment', {
+if (!isMcpHost()) app.http('deleteAttachment', {
   methods: ['DELETE'],
   authLevel: 'anonymous',
   route: 'attachments/{entryId}/{attachmentId}',

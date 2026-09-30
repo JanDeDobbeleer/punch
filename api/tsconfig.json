@@ -4,13 +4,28 @@
     "moduleResolution": "NodeNext",
     "target": "ES2022",
     "outDir": "dist",
-    "rootDir": ".",
+    "rootDir": "..",
     "sourceMap": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "react": [
+        "./node_modules/@types/react/index.d.ts"
+      ]
+    }
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*.ts",
+    "../src/types.ts",
+    "../src/lib/dates.ts",
+    "../src/lib/rates.ts",
+    "../src/lib/earnings.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts"
+  ]
 }

@@ -2,8 +2,8 @@
 // with `to: null` is the currently active ("open") one. Adding a new rate
 // closes the previously open period the day before the new period starts.
 
-import type { RatePeriod } from '../types';
-import { addDays, iso, parseISO } from './dates';
+import type { RatePeriod } from '../types.js';
+import { addDays, iso, parseISO } from './dates.js';
 
 export function sortRates(rates: RatePeriod[]): RatePeriod[] {
   return rates.slice().sort((a, b) => a.from.localeCompare(b.from));

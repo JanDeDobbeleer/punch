@@ -46,6 +46,57 @@ jobs:
           app_build_command: 'npm ci && npm run build'
           api_build_command: 'npm ci && npm run build'
 
+  # The MCP + OAuth endpoints run on a separate Flex Consumption Function App,
+  # because SWA replaces the Authorization header on managed Functions (docs/mcp.md).
+  # Flex has no slots, so only main deploys here; PR previews keep using punch-mcp.
+  deploy_mcp:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    name: Deploy MCP Function App
+    # No `environment:` here: it would change the OIDC subject away from
+    # repo:JanDeDobbeleer/punch:ref:refs/heads/main, which the federated credential trusts.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+
+      - name: Build API
+        working-directory: api
+        run: npm ci && npm run build
+
+      - name: Assemble MCP package
+        working-directory: api
+        run: |
+          mkdir -p ../.mcp-pkg
+          cp -r dist package.json package-lock.json host.json ../.mcp-pkg/
+          (cd ../.mcp-pkg && npm ci --omit=dev --ignore-scripts)
+          node deploy/prepare-mcp-host.mjs ../.mcp-pkg/host.json
+
+      - name: Azure login
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_MCP_DEPLOY_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to punch-mcp
+        uses: Azure/functions-action@c5060b3b8bb1ebbcb531abd00c822ecbaa8ea656 # v1.5.7
+        with:
+          app-name: punch-mcp
+          package: .mcp-pkg
+          sku: flexconsumption
+
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest

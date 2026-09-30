@@ -1070,6 +1070,29 @@ export function useAppState(settings: AppSettings): AppViewModel {
     }
   }, []);
 
+  const [mcpArm, setMcpArm] = useState<
+    { status: 'idle' } | { status: 'arming' } | { status: 'armed'; until: number } | { status: 'error'; message: string }
+  >({ status: 'idle' });
+
+  const armMcp = useCallback(async () => {
+    if (DEV_MODE || stateRef.current.demoMode) return;
+    setMcpArm({ status: 'arming' });
+    try {
+      const { armedUntil } = await store.armMcp();
+      const until = Date.parse(armedUntil);
+      setMcpArm(Number.isFinite(until) && until > Date.now() ? { status: 'armed', until } : { status: 'idle' });
+    } catch (error) {
+      setMcpArm({ status: 'error', message: error instanceof Error ? error.message : 'Failed to arm MCP connection.' });
+    }
+  }, []);
+
+  const mcpArmedUntil = mcpArm.status === 'armed' ? mcpArm.until : null;
+  useEffect(() => {
+    if (mcpArmedUntil === null) return;
+    const timer = window.setTimeout(() => setMcpArm({ status: 'idle' }), Math.max(0, mcpArmedUntil - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [mcpArmedUntil]);
+
   const signIn = useCallback(() => {
     window.location.href = '/.auth/login/github';
   }, []);
@@ -1757,6 +1780,21 @@ export function useAppState(settings: AppSettings): AppViewModel {
       ? 'Preview Punch with example projects, customers and time entries. Your real data stays untouched and you can switch back anytime.'
       : 'You\'re browsing as a guest. Sign in with GitHub to save your data and sync it across devices.';
 
+    const mcpArmDisabled = DEV_MODE || ctx.S.demoMode || !ctx.S.isAuthenticated || mcpArm.status === 'arming';
+    const mcpArmLabel =
+      mcpArm.status === 'arming'
+        ? 'Arming…'
+        : mcpArm.status === 'armed'
+          ? `Armed until ${new Date(mcpArm.until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : 'Connect MCP';
+    const mcpArmHint = ctx.S.demoMode
+      ? 'Unavailable in demo mode.'
+      : !ctx.S.isAuthenticated
+        ? 'Sign in with GitHub first.'
+        : mcpArm.status === 'error'
+          ? mcpArm.message
+          : '';
+
     return {
       onBack: () => setPage('clock'),
       demoMode: ctx.S.demoMode,
@@ -1772,9 +1810,16 @@ export function useAppState(settings: AppSettings): AppViewModel {
       onSignOut: signOut,
       isAuthenticated: ctx.S.isAuthenticated,
       onSignIn: signIn,
+      mcpServerUrl: `${window.location.origin}/api/mcp`,
+      mcpArmDisabled,
+      mcpArmLabel,
+      mcpArmHint,
+      onArmMcp: () => {
+        void armMcp();
+      },
       onDeleteAll: resetData,
     };
-  }, [ctx, onToggleDemoMode, pushStateNow, resetData, setPage, signIn, signOut]);
+  }, [armMcp, ctx, mcpArm, onToggleDemoMode, pushStateNow, resetData, setPage, signIn, signOut]);
 
   const clockProps = useMemo<ClockViewProps | null>(() => {
     if (!ctx.isClock) {

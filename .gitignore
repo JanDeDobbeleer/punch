@@ -47,3 +47,7 @@ api/scripts/
 
 # SWA CLI config (may contain deployment tokens)
 swa-cli.config.json
+
+# MCP Function App deploy package (docs/mcp.md)
+.mcp-pkg/
+mcp-pkg.zip

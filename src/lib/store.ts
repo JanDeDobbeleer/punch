@@ -244,6 +244,22 @@ export async function saveState(data: PersistedData, etag: string): Promise<{ et
   return { etag: response.headers.get('etag') ?? '' };
 }
 
+// ─── MCP connector arming ────────────────────────────────────────────────
+
+export async function armMcp(): Promise<{ armedUntil: string }> {
+  const response = await fetch('/api/mcp-arm', { method: 'POST', credentials: 'same-origin' });
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+
+  const data = (await response.json()) as { armedUntil?: string };
+  if (!data.armedUntil) {
+    throw new Error('Unexpected response from /api/mcp-arm');
+  }
+  return { armedUntil: data.armedUntil };
+}
+
 // ─── attachments (Azure Blob Storage via SAS) ────────────────────────────
 
 interface AttachmentUploadTicket {
