@@ -582,6 +582,13 @@ export interface SettingsViewProps {
   isAuthenticated: boolean;
   onSignIn: () => void;
 
+  // Claude connector (MCP): POST /api/mcp-arm opens a 5-minute connect window
+  mcpServerUrl: string;
+  mcpArmDisabled: boolean;
+  mcpArmLabel: string;
+  mcpArmHint: string;
+  onArmMcp: () => void;
+
   // Danger zone
   onDeleteAll: () => void;
 }

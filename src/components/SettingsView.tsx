@@ -34,6 +34,11 @@ const SettingsView: FC<SettingsViewProps> = ({
   onSignOut,
   isAuthenticated,
   onSignIn,
+  mcpServerUrl,
+  mcpArmDisabled,
+  mcpArmLabel,
+  mcpArmHint,
+  onArmMcp,
   onDeleteAll,
 }) => (
   <div style={{ flex: 1, overflow: 'auto', padding: '26px' }}>
@@ -168,6 +173,48 @@ const SettingsView: FC<SettingsViewProps> = ({
               </button>
             </div>
           )}
+        </div>
+      </section>
+
+      <section style={cardStyle}>
+        <div style={{ fontSize: '17px', fontWeight: 600, letterSpacing: '-0.01em' }}>Claude connector (MCP)</div>
+        <div style={{ marginTop: '5px', fontSize: '13px', color: '#64748b', lineHeight: 1.65 }}>
+          Start here, then add or reconnect the Punch connector on claude.ai within 5 minutes.
+        </div>
+        <div
+          style={{
+            marginTop: '14px',
+            padding: '14px 16px',
+            borderRadius: '10px',
+            border: '1px solid #e4e7eb',
+            background: '#f8fafc',
+          }}
+        >
+          <div style={{ fontSize: '11px', letterSpacing: '0.05em', textTransform: 'uppercase', color: '#94a3b8', fontFamily: "'Geist Mono',monospace" }}>
+            Connector URL
+          </div>
+          <div style={{ marginTop: '4px', fontSize: '13px', fontFamily: "'Geist Mono',monospace", color: '#0f172a', wordBreak: 'break-all' }}>
+            {mcpServerUrl}
+          </div>
+        </div>
+        <div style={{ marginTop: '14px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={mcpArmDisabled}
+            style={{
+              ...secondaryButtonStyle,
+              background: 'linear-gradient(135deg, #1e3a5f, color-mix(in srgb, #1e3a5f 72%, #2563eb))',
+              borderColor: '#1e3a5f',
+              color: '#fff',
+              opacity: mcpArmDisabled ? 0.6 : 1,
+              cursor: mcpArmDisabled ? 'not-allowed' : 'pointer',
+            }}
+            onClick={onArmMcp}
+          >
+            {mcpArmLabel}
+          </button>
+          {mcpArmHint && <div style={{ fontSize: '12.5px', color: '#64748b' }}>{mcpArmHint}</div>}
         </div>
       </section>
 
