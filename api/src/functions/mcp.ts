@@ -8,6 +8,7 @@ import { checkAccessToken } from '../oauth/tokens.js';
 import { getAuthContainer } from '../oauth/markers.js';
 import { corsHeaders, wwwAuthenticateHeader } from '../oauth/config.js';
 import { registerTools } from '../mcp/tools.js';
+import { isMcpHost, route } from '../role.js';
 
 // Managed Functions on the Free plan have no log sink, so keep the last failure of each kind
 // in mcp-auth/last-reject (401) and mcp-auth/last-error (other non-2xx) for diagnosis.
@@ -123,9 +124,9 @@ async function handler(request: HttpRequest, context: InvocationContext): Promis
   }
 }
 
-app.http('mcp', {
+if (isMcpHost()) app.http('mcp', {
   methods: ['POST', 'GET', 'DELETE', 'OPTIONS'],
   authLevel: 'anonymous',
-  route: 'mcp',
+  route: route('mcp'),
   handler,
 });

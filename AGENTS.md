@@ -27,12 +27,19 @@ coding agent (GitHub Copilot, etc.) working in this repository.
   gates **every** route (`/*` and `/api/*`) behind `allowedRoles: ["owner"]`.
   There is intentionally no multi-tenant/multi-user support.
 - **MCP server**: `/api/mcp` is a stateless Streamable HTTP MCP endpoint for
-  claude.ai / Claude Desktop custom connectors. It does **not** use the SWA
-  cookie session: `/api/mcp` and `/api/oauth/*` are `anonymous` in
-  `staticwebapp.config.json` and do their own auth via a minimal OAuth 2.1
+  claude.ai / Claude Desktop custom connectors. SWA replaces the `Authorization`
+  header on managed Functions, so MCP + OAuth run on a **separate Azure
+  Functions Flex Consumption app** that claude.ai calls directly. The same
+  `api/` package deploys to both hosts; `PUNCH_FUNCTIONS_ROLE=mcp` (see
+  `api/src/role.ts`) makes a host register only `mcp`, `oauth/*` and the root
+  `/.well-known/*` routes, while the default (`swa`) role registers only
+  `state`, `attachments` and `mcp-arm`. Auth is a minimal OAuth 2.1
   authorization server (PKCE, DCR, stateless HS256 JWTs) that delegates login
   to a dedicated GitHub OAuth App and admits only
-  `PUNCH_MCP_ALLOWED_GITHUB_USER_ID`. See `docs/mcp.md`.
+  `PUNCH_MCP_ALLOWED_GITHUB_USER_ID`. `requireOwner()` always denies on the MCP
+  host. Unlike SWA managed Functions, the Flex app **does** support managed
+  identity (storage via `STORAGE_ACCOUNT_URL` + Storage Blob Data Contributor).
+  See `docs/mcp.md`.
 - **CI/CD**: `.github/workflows/deploy.yml` builds and deploys on every push
   to `main` (and manages PR preview environments) via
   `Azure/static-web-apps-deploy@v1`. It requires the
@@ -57,9 +64,11 @@ api/                       # Azure Functions API
   src/functions/state.ts       # GET/PUT /api/state (ETag concurrency)
   src/functions/attachments.ts # POST /api/attachments (SAS upload ticket),
                                 #   GET/DELETE /api/attachments/{entryId}/{attachmentId}
-  src/functions/oauth.ts       # OAuth AS for MCP clients (metadata, register, authorize,
-                                #   GitHub callback, token) — see docs/mcp.md
-  src/functions/mcp.ts         # /api/mcp — Bearer-authenticated MCP endpoint
+  src/role.ts                  # PUNCH_FUNCTIONS_ROLE (swa | mcp) + route() prefix helper
+  src/functions/oauth.ts       # (mcp role only) OAuth AS for MCP clients (metadata, register,
+                                #   authorize, GitHub callback, token, .well-known)
+  src/functions/mcp.ts         # (mcp role only) /api/mcp — Bearer-authenticated MCP endpoint
+  deploy/prepare-mcp-host.mjs # deploy helper: clears host.json routePrefix for the Flex app
   src/mcp/tools.ts             # MCP tool definitions (read + entry CRUD)
   src/oauth/                   # JWT/PKCE/redirect-allowlist helpers
   src/stateStore.ts        # Blob read/write for state.json + state.YYYY.json

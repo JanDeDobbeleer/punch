@@ -1,12 +1,29 @@
 # Punch MCP server
 
 Punch exposes a remote [MCP](https://modelcontextprotocol.io) server at
-`https://<your-custom-domain>/api/mcp`, so you can add it to claude.ai or the
+`https://<function-app-host>/api/mcp`, so you can add it to claude.ai or the
 Claude Desktop app as a custom connector. Through it, Claude can read your
 customers, projects, services, entries and earnings, and can log, update or
 delete time entries.
 
 ## How auth works
+
+The MCP and OAuth endpoints run on a **separate Azure Functions Flex Consumption
+app**, not on the SWA's managed Functions. The reason: Static Web Apps replaces
+the incoming `Authorization: Bearer …` header on requests to managed Functions
+with its own token, so claude.ai's bearer token never reaches `/api/mcp`. The
+same `api/` package is deployed to both hosts and the app setting
+`PUNCH_FUNCTIONS_ROLE` picks what each registers (`src/role.ts`):
+
+- SWA managed Functions (role unset): `state`, `attachments`, `mcp-arm`.
+- Flex app (`PUNCH_FUNCTIONS_ROLE=mcp`): `mcp`, `oauth/*`, and the root
+  `/.well-known/*` discovery routes. `requireOwner()` always denies there, since
+  a public Function App can't trust an `x-ms-client-principal` header.
+
+Its `host.json` is deployed with `extensions.http.routePrefix` set to `""`
+(`api/deploy/prepare-mcp-host.mjs`), so function routes carry an explicit
+`api/` prefix and the well-known routes sit at the root. Public URLs are
+`https://<function-app-host>/api/mcp`, `/api/oauth/...` and `/.well-known/...`.
 
 MCP clients don't use the SWA cookie session. They follow the MCP authorization
 spec (OAuth 2.1 with PKCE and Dynamic Client Registration). Punch runs a small
@@ -15,8 +32,8 @@ authorization server of its own in `api/src/functions/oauth.ts`:
 1. The client calls `/api/mcp` without a token and gets back
    `401 WWW-Authenticate: Bearer resource_metadata=…`.
 2. The client discovers `/.well-known/oauth-protected-resource` and
-   `/.well-known/oauth-authorization-server`. SWA rewrites both to
-   `/api/oauth/*`.
+   `/.well-known/oauth-authorization-server`, served from the Function App root
+   (path-suffixed variants work too).
 3. The client registers at `/api/oauth/register`. The `client_id` it gets is a
    signed JWT, so nothing is stored. Only allowlisted redirect URIs are accepted:
    the claude.ai/claude.com callbacks. Localhost callbacks are accepted only
@@ -39,27 +56,30 @@ authorization server of its own in `api/src/functions/oauth.ts`:
    Auth codes and refresh tokens are single-use, enforced with marker blobs in
    the `mcp-auth` container. Refresh tokens rotate on each use.
 
-`/api/mcp` and `/api/oauth/*` are `anonymous` at the SWA layer because they do
-their own auth. Every other `/api/*` route still requires the `owner` role.
+`/api/mcp` and `/api/oauth/*` are public on the Function App because they do
+their own auth. `POST /api/mcp-arm` stays on the SWA behind the `owner` role and
+writes the `armed` marker to the shared `mcp-auth` container, which the Function
+App reads. Both hosts must use the same storage account.
 
 ## One-time setup
 
 1. Create a **GitHub OAuth App** (GitHub → Settings → Developer settings → OAuth
    Apps). It must be separate from the one SWA's built-in auth uses.
-   - Homepage URL: `https://<your-custom-domain>`
-   - Authorization callback URL: `https://<your-custom-domain>/api/oauth/github/callback`
+   - Homepage URL: `https://<function-app-host>`
+   - Authorization callback URL: `https://<function-app-host>/api/oauth/github/callback`
 2. Find your numeric GitHub user id:
 
    ```bash
    gh api user --jq .id
    ```
 
-3. Set the app settings. Use your own resource names; for how to set the
-   subscription first, see `.github/skills/azure-ops`.
-
-   ```bash
-   az staticwebapp appsettings set --name <your-swa-resource> --resource-group <your-resource-group> --setting-names PUNCH_MCP_BASE_URL=https://<your-custom-domain> PUNCH_MCP_JWT_SECRET=<48+ random chars> PUNCH_MCP_GITHUB_CLIENT_ID=<id> PUNCH_MCP_GITHUB_CLIENT_SECRET=<secret> PUNCH_MCP_ALLOWED_GITHUB_USER_ID=<numeric id> PUNCH_HOURS_PER_DAY=8
-   ```
+3. Provision the Function App (see below), then set these app settings on it:
+   `PUNCH_FUNCTIONS_ROLE=mcp`, `PUNCH_MCP_BASE_URL=https://<function-app-host>`
+   (the Function App origin), `PUNCH_MCP_JWT_SECRET=<48+ random chars>`,
+   `PUNCH_MCP_GITHUB_CLIENT_ID`, `PUNCH_MCP_GITHUB_CLIENT_SECRET`,
+   `PUNCH_MCP_ALLOWED_GITHUB_USER_ID=<numeric id>` and `PUNCH_HOURS_PER_DAY=8`.
+   Storage uses managed identity: set `STORAGE_ACCOUNT_URL` and give the Function
+   App's identity **Storage Blob Data Contributor** on the storage account.
 
    To generate the JWT secret, run `openssl rand -base64 48`. In PowerShell,
    which has no `openssl`, use
@@ -69,12 +89,18 @@ their own auth. Every other `/api/*` route still requires the `owner` role.
 4. In Punch, open Settings → Connect MCP. This arms the server for 5 minutes.
 5. Within those 5 minutes, on claude.ai go to Settings → Connectors → Add
    custom connector (or reconnect the existing one) and enter URL
-   `https://<your-custom-domain>/api/mcp`. Approve on the Punch consent page,
+   `https://<function-app-host>/api/mcp`. Approve on the Punch consent page,
    then sign in with GitHub. To connect again later (for example after
    rotating the secret), arm again first.
 
 Leave `PUNCH_MCP_ALLOW_LOCALHOST_REDIRECT` unset in production. It only exists
 for local development.
+
+## Function App provisioning
+
+TODO: `az` commands for the Flex Consumption app (create, managed identity and
+role assignment, app settings, deploying the `api/` build with
+`node deploy/prepare-mcp-host.mjs <package>/host.json` applied to the package).
 
 ## Kill switch
 
@@ -92,8 +118,12 @@ marker would let its token be replayed. The cost is negligible.
 
 ## Local development
 
-`func start` alone doesn't apply the `.well-known` rewrites in
-`staticwebapp.config.json`. Run the API behind the SWA CLI so discovery works:
+Locally, run the API in the MCP role so MCP and OAuth routes register: set
+`PUNCH_FUNCTIONS_ROLE=mcp` in `api/local.settings.json` and clear the route
+prefix in a scratch copy of `host.json` (`node deploy/prepare-mcp-host.mjs`).
+The SWA-only routes (state, attachments, mcp-arm) are not registered in that
+role, so arm by writing the `armed` marker or by running a second instance
+without the role. The older SWA CLI flow below no longer serves `.well-known`:
 
 ```bash
 npx @azure/static-web-apps-cli start http://localhost:5173 --api-location api

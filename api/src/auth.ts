@@ -5,6 +5,7 @@
 // Function is ever invoked directly (e.g. local dev without the SWA proxy).
 
 import type { HttpRequest } from '@azure/functions';
+import { isMcpHost } from './role.js';
 
 export interface ClientPrincipal {
   identityProvider: string;
@@ -31,10 +32,15 @@ const REQUIRED_ROLE = 'owner';
 
 // In local development there is no SWA auth proxy in front of the Function,
 // so we allow requests through when explicitly opted in via app settings.
-const skipAuthCheck = (process.env.SKIP_AUTH_CHECK ?? process.env.PUNCH_SKIP_AUTH_CHECK) === '1';
+// Never honoured on the MCP host.
+const skipAuthCheck = () => (process.env.SKIP_AUTH_CHECK ?? process.env.PUNCH_SKIP_AUTH_CHECK) === '1';
 
 export function requireOwner(request: HttpRequest): ClientPrincipal | null {
-  if (skipAuthCheck) {
+  // The MCP host is a public Function App: anyone could forge x-ms-client-principal.
+  if (isMcpHost()) {
+    return null;
+  }
+  if (skipAuthCheck()) {
     return { identityProvider: 'local', userId: 'local-dev', userDetails: 'local-dev', userRoles: ['owner'] };
   }
 

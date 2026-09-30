@@ -13,6 +13,7 @@
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import { requireOwner } from '../auth.js';
+import { isMcpHost } from '../role.js';
 import {
   ConflictError,
   isPersistedData,
@@ -141,5 +142,5 @@ async function putState(request: HttpRequest, context: InvocationContext): Promi
   }
 }
 
-app.http('getState', { methods: ['GET'], authLevel: 'anonymous', route: 'state', handler: getState });
-app.http('putState', { methods: ['PUT'], authLevel: 'anonymous', route: 'state', handler: putState });
+if (!isMcpHost()) app.http('getState', { methods: ['GET'], authLevel: 'anonymous', route: 'state', handler: getState });
+if (!isMcpHost()) app.http('putState', { methods: ['PUT'], authLevel: 'anonymous', route: 'state', handler: putState });

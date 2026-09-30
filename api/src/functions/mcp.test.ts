@@ -3,6 +3,7 @@
 
 import { beforeAll, describe, expect, test, vi } from 'vitest';
 
+process.env.PUNCH_FUNCTIONS_ROLE = 'mcp';
 process.env.PUNCH_MCP_BASE_URL = 'https://punch.example.com';
 process.env.PUNCH_MCP_JWT_SECRET = 'x'.repeat(40);
 process.env.PUNCH_MCP_GITHUB_CLIENT_ID = 'gh-id';

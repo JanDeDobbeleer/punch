@@ -4,6 +4,7 @@
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import { requireOwner } from '../auth.js';
+import { isMcpHost } from '../role.js';
 import { arm } from '../oauth/arming.js';
 
 export async function mcpArmHandler(request: HttpRequest, context: Pick<InvocationContext, 'error'>): Promise<HttpResponseInit> {
@@ -23,4 +24,4 @@ export async function mcpArmHandler(request: HttpRequest, context: Pick<Invocati
   }
 }
 
-app.http('mcpArm', { methods: ['POST'], authLevel: 'anonymous', route: 'mcp-arm', handler: mcpArmHandler });
+if (!isMcpHost()) app.http('mcpArm', { methods: ['POST'], authLevel: 'anonymous', route: 'mcp-arm', handler: mcpArmHandler });

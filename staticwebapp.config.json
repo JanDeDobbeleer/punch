@@ -1,22 +1,6 @@
 {
   "routes": [
     {
-      "route": "/api/mcp",
-      "allowedRoles": ["anonymous"]
-    },
-    {
-      "route": "/api/oauth/*",
-      "allowedRoles": ["anonymous"]
-    },
-    {
-      "route": "/.well-known/oauth-protected-resource*",
-      "rewrite": "/api/oauth/protected-resource"
-    },
-    {
-      "route": "/.well-known/oauth-authorization-server*",
-      "rewrite": "/api/oauth/metadata"
-    },
-    {
       "route": "/api/*",
       "allowedRoles": ["owner"]
     }
@@ -34,6 +18,6 @@
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "/.well-known/*", "/assets/*", "/*.{png,jpg,jpeg,svg,ico,css,js,json}"]
+    "exclude": ["/api/*", "/assets/*", "/*.{png,jpg,jpeg,svg,ico,css,js,json}"]
   }
 }
