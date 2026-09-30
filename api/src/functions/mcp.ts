@@ -9,13 +9,28 @@ import { getAuthContainer } from '../oauth/markers.js';
 import { corsHeaders, wwwAuthenticateHeader } from '../oauth/config.js';
 import { registerTools } from '../mcp/tools.js';
 
-// Managed Functions on the Free plan have no log sink, so keep the last rejection
-// (non-secret: reason, token length, method, time) in mcp-auth/last-reject for diagnosis.
-async function recordRejection(description: string, request: HttpRequest, context: InvocationContext): Promise<void> {
+// Managed Functions on the Free plan have no log sink, so keep the last failure of each kind
+// in mcp-auth/last-reject (401) and mcp-auth/last-error (other non-2xx) for diagnosis.
+// Only non-secret data: reasons, lengths, header *names*, protocol headers, JSON-RPC error text.
+async function recordFailure(
+  blobName: 'last-reject' | 'last-error',
+  details: Record<string, unknown>,
+  request: HttpRequest,
+  context: InvocationContext,
+): Promise<void> {
   try {
-    const body = JSON.stringify({ description, method: request.method, at: new Date().toISOString() });
+    const body = JSON.stringify({
+      ...details,
+      method: request.method,
+      protocolVersion: request.headers.get('mcp-protocol-version'),
+      accept: request.headers.get('accept'),
+      contentType: request.headers.get('content-type'),
+      authScheme: (request.headers.get('authorization') ?? '').split(' ')[0] || null,
+      headerNames: [...request.headers.keys()].sort(),
+      at: new Date().toISOString(),
+    });
     const container = await getAuthContainer();
-    await container.getBlockBlobClient('last-reject').upload(body, Buffer.byteLength(body), {
+    await container.getBlockBlobClient(blobName).upload(body, Buffer.byteLength(body), {
       blobHTTPHeaders: { blobContentType: 'application/json' },
     });
   } catch (error) {
@@ -37,7 +52,7 @@ async function handler(request: HttpRequest, context: InvocationContext): Promis
     const description = token && check && 'reason' in check ? `${check.reason}; len=${token.length}` : undefined;
     if (description) {
       context.log(`MCP bearer rejected: ${description}`);
-      await recordRejection(description, request, context);
+      await recordFailure('last-reject', { description }, request, context);
     }
     return {
       status: 401,
@@ -83,13 +98,19 @@ async function handler(request: HttpRequest, context: InvocationContext): Promis
     res.headers.forEach((value, key) => {
       headers[key] = value;
     });
+    const body = res.status === 204 || res.status === 202 ? undefined : await res.text();
+    if (res.status >= 400) {
+      // Transport-level errors are JSON-RPC error objects (no user data).
+      await recordFailure('last-error', { status: res.status, response: body?.slice(0, 300) }, request, context);
+    }
     return {
       status: res.status,
       headers: { ...headers, ...corsHeaders() },
-      body: res.status === 204 || res.status === 202 ? undefined : await res.text(),
+      body,
     };
   } catch (err) {
     context.error('MCP request failed', err);
+    await recordFailure('last-error', { status: 500, error: err instanceof Error ? err.message.slice(0, 300) : 'unknown' }, request, context);
     return { status: 500, jsonBody: { error: 'server_error' }, headers: corsHeaders() };
   } finally {
     await transport.close().catch(() => undefined);
