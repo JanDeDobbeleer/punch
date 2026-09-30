@@ -18,12 +18,6 @@ vi.mock('@azure/functions', async (importActual) => {
   return { ...actual, app: { http: (name: string, opts: { handler: Handler }) => handlers.set(name, opts.handler) } };
 });
 
-const recorded: string[] = [];
-vi.mock('../oauth/markers.js', () => ({
-  getAuthContainer: async () => ({
-    getBlockBlobClient: () => ({ upload: async (body: string) => { recorded.push(body); } }),
-  }),
-}));
 
 vi.mock('../stateStore.js', () => ({
   ConflictError: class ConflictError extends Error {},
@@ -42,7 +36,7 @@ const { issueTokenPair } = await import('../oauth/tokens.js');
 const { signToken } = await import('../oauth/jwt.js');
 await import('./mcp.js');
 
-const ctx = { error: vi.fn(), log: vi.fn() };
+const ctx = { error: vi.fn(), log: vi.fn(), warn: vi.fn() };
 const mcp = () => handlers.get('mcp')!;
 
 function rpc(body: unknown, token?: string) {
@@ -114,8 +108,7 @@ describe('/api/mcp', () => {
       expect(res.status).toBe(401);
       expect(res.headers?.['WWW-Authenticate']).toContain(`error_description="${reason}; len=${bearer.length}"`);
       expect(res.headers?.['WWW-Authenticate']).not.toContain(bearer);
-      expect(JSON.parse(recorded.at(-1)!).description).toBe(`${reason}; len=${bearer.length}`);
-      expect(recorded.at(-1)).not.toContain(bearer);
+      expect(ctx.log).toHaveBeenLastCalledWith(`MCP bearer rejected: ${reason}; len=${bearer.length}`);
     }
   });
 
