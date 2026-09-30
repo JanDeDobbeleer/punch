@@ -5,9 +5,12 @@ const EXACT = new Set([
   'https://claude.com/api/mcp/auth_callback',
 ]);
 
-export function isAllowedRedirectUri(uri: unknown): boolean {
+// Localhost/127.0.0.1 redirects (dev, MCP Inspector) are only allowed when
+// PUNCH_MCP_ALLOW_LOCALHOST_REDIRECT=1.
+export function isAllowedRedirectUri(uri: unknown, allowLocalhost: boolean = process.env.PUNCH_MCP_ALLOW_LOCALHOST_REDIRECT === '1'): boolean {
   if (typeof uri !== 'string' || uri.length === 0 || uri.length > 2048) return false;
   if (EXACT.has(uri)) return true;
+  if (!allowLocalhost) return false;
   let url: URL;
   try {
     url = new URL(uri);

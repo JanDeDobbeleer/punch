@@ -20,6 +20,9 @@ export function getJwtSecret(): Uint8Array {
   if (secret.length < 32) {
     throw new ConfigError('PUNCH_MCP_JWT_SECRET must be at least 32 characters.');
   }
+  if (secret.startsWith('CHANGE-ME') || secret.startsWith('replace-with')) {
+    throw new ConfigError('PUNCH_MCP_JWT_SECRET is still the placeholder value; generate a real secret.');
+  }
   return new TextEncoder().encode(secret);
 }
 
@@ -54,4 +57,8 @@ export function corsHeaders(): Record<string, string> {
     'Access-Control-Expose-Headers': 'WWW-Authenticate, Mcp-Session-Id',
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   };
+}
+
+export function localhostRedirectsAllowed(): boolean {
+  return process.env.PUNCH_MCP_ALLOW_LOCALHOST_REDIRECT === '1';
 }

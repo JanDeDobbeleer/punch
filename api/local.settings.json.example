@@ -7,10 +7,11 @@
     "STATE_CONTAINER": "state",
     "ATTACHMENTS_CONTAINER": "attachments",
     "PUNCH_MCP_BASE_URL": "http://localhost:4280",
-    "PUNCH_MCP_JWT_SECRET": "replace-with-a-random-string-of-at-least-32-chars",
+    "PUNCH_MCP_JWT_SECRET": "CHANGE-ME-generate-with-openssl-rand-base64-48",
     "PUNCH_MCP_GITHUB_CLIENT_ID": "your-github-oauth-app-client-id",
     "PUNCH_MCP_GITHUB_CLIENT_SECRET": "your-github-oauth-app-client-secret",
     "PUNCH_MCP_ALLOWED_GITHUB_USER_ID": "12345678",
+    "PUNCH_MCP_ALLOW_LOCALHOST_REDIRECT": "1",
     "PUNCH_HOURS_PER_DAY": "8"
   },
   "Host": {

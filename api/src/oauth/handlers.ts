@@ -3,7 +3,8 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { isAllowedRedirectUri } from './allowlist.js';
-import { ConfigError, corsHeaders, getAllowedGithubUserId, getBaseUrl, getGithubClient, mcpResourceUrl } from './config.js';
+import { ConfigError, corsHeaders, getAllowedGithubUserId, getBaseUrl, getGithubClient, localhostRedirectsAllowed, mcpResourceUrl } from './config.js';
+import { disarm, isArmed } from './arming.js';
 import { fetchGithubUserId } from './github.js';
 import { signToken, verifyToken } from './jwt.js';
 import { consumeOnce } from './markers.js';
@@ -13,6 +14,7 @@ import { CODE_TTL, GHSTATE_TTL, SCOPE, issueTokenPair } from './tokens.js';
 const CONSENT_TTL = 300;
 const NONCE_COOKIE = 'punch_oauth_nonce';
 const NO_STORE = { 'Cache-Control': 'no-store' };
+const NOT_ARMED_MESSAGE = 'Punch MCP connections must be started from Punch → Settings → Connect MCP (valid for 5 minutes).';
 const ALLOWED_GRANTS = ['authorization_code', 'refresh_token'];
 
 type Ctx = Pick<InvocationContext, 'error' | 'log'>;
@@ -128,7 +130,7 @@ export async function register(request: HttpRequest, context: Ctx): Promise<Http
   if (!Array.isArray(uris) || uris.length === 0 || uris.length > 10 || !uris.every((u) => typeof u === 'string')) {
     return oauthError('invalid_redirect_uri', 'redirect_uris must be a non-empty array of strings.');
   }
-  if (!uris.every(isAllowedRedirectUri)) {
+  if (!uris.every((u) => isAllowedRedirectUri(u))) {
     return oauthError('invalid_redirect_uri', 'One or more redirect_uris are not allowed.');
   }
   const method = body.token_endpoint_auth_method;
@@ -172,6 +174,7 @@ export async function authorize(request: HttpRequest, context: Ctx): Promise<Htt
     if (!client || !redirectUri || !registered.includes(redirectUri) || !isAllowedRedirectUri(redirectUri)) {
       return htmlError('Invalid client_id or redirect_uri.');
     }
+    if (!(await isArmed())) return htmlError(NOT_ARMED_MESSAGE);
 
     const state = q.get('state') ?? undefined;
     const fail = (error: string, description: string) => redirectWith(redirectUri, { error, error_description: description, state });
@@ -189,7 +192,6 @@ export async function authorize(request: HttpRequest, context: Ctx): Promise<Htt
       ru: redirectUri,
       cc: challenge,
       st: state,
-      sc: q.get('scope') ?? SCOPE,
       n: nonce,
     }, { ttlSeconds: CONSENT_TTL });
     const clientName = typeof client.cn === 'string' && client.cn ? client.cn : 'Unknown client';
@@ -202,13 +204,20 @@ export async function authorize(request: HttpRequest, context: Ctx): Promise<Htt
         'X-Frame-Options': 'DENY',
         // SWA globalHeaders don't apply to API responses, so the page carries its own CSP.
         // form-action must allow the post-submit redirect targets (Chrome enforces it on redirects).
-        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://github.com https://claude.ai https://claude.com http://localhost:* http://127.0.0.1:*; frame-ancestors 'none'; base-uri 'none'",
+        'Content-Security-Policy': consentCsp(),
         'Set-Cookie': nonceCookie(nonce),
       },
     };
   } catch (error) {
     return serverError(context, 'authorize', error);
   }
+}
+
+export function consentCsp(): string {
+  // form-action also governs redirects after submit: GitHub (approve) and the client callback (deny).
+  const targets = ["'self'", 'https://github.com', 'https://claude.ai', 'https://claude.com'];
+  if (localhostRedirectsAllowed()) targets.push('http://localhost:*', 'http://127.0.0.1:*');
+  return `default-src 'none'; style-src 'unsafe-inline'; form-action ${targets.join(' ')}; frame-ancestors 'none'; base-uri 'none'`;
 }
 
 function escapeHtml(v: string): string {
@@ -272,20 +281,20 @@ export async function authorizePost(request: HttpRequest, context: Ctx): Promise
       return redirectWith(redirectUri, { error: 'access_denied', state }, { 'Set-Cookie': clearNonceCookie() });
     }
 
+    if (!(await isArmed())) return htmlError(NOT_ARMED_MESSAGE);
+
     const { clientId: ghClientId } = getGithubClient();
     const ghstate = await signToken('ghstate', {
       cid: c.cid,
       ru: redirectUri,
       cc: c.cc,
       st: state,
-      sc: typeof c.sc === 'string' ? c.sc : SCOPE,
       n: nonce,
     }, { ttlSeconds: GHSTATE_TTL });
 
     const gh = new URL('https://github.com/login/oauth/authorize');
     gh.searchParams.set('client_id', ghClientId);
     gh.searchParams.set('redirect_uri', `${getBaseUrl()}/api/oauth/github/callback`);
-    gh.searchParams.set('scope', 'read:user');
     gh.searchParams.set('state', ghstate);
     gh.searchParams.set('allow_signup', 'false');
     return redirect(gh.toString(), { 'Set-Cookie': nonceCookie(nonce) });
@@ -324,6 +333,9 @@ export async function githubCallback(request: HttpRequest, context: Ctx): Promis
       return denied();
     }
 
+    // One arming = one connection. Fail closed if the marker cannot be cleared.
+    await disarm();
+
     const authCode = await signToken('code', {
       cid: clientId,
       ru: redirectUri,
@@ -360,6 +372,7 @@ export async function token(request: HttpRequest, context: Ctx): Promise<HttpRes
   }
 
   try {
+    if (p.resource !== undefined && p.resource !== mcpResourceUrl()) return oauthError('invalid_target', 'Unknown resource.');
     if (p.grant_type === 'authorization_code') {
       const code = str(p.code);
       const clientId = str(p.client_id);
