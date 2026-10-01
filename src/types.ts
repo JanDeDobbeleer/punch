@@ -28,6 +28,7 @@ export interface Project {
   name: string;
   customerId: string;
   rates: RatePeriod[];
+  reference?: string | null; // optional external-system reference; undefined supports legacy persisted projects
   budget?: number | null;  // optional budget cap in €; undefined/null/0 = no cap
   closed?: boolean;        // manually closed; budget-exceeded projects are also treated as closed
 }
@@ -91,6 +92,7 @@ export interface ProjectForm {
   id: string | null;
   name: string;
   customerId: string;
+  reference: string;
   rates: RatePeriod[];
   newRateAmount: string;
   newRateFrom: string;
@@ -463,6 +465,8 @@ export interface ProjectDetailViewProps {
   saveLabel: string;
   projectName: string;
   customerId: string;
+  reference: string;
+  referenceError: string;
   hours: string;
   earn: string;
   canDelete: boolean;
@@ -477,6 +481,7 @@ export interface ProjectDetailViewProps {
   btnPrimaryLg: CSSProperties;
   onNameChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onCustomerChange: (e: ChangeEvent<HTMLSelectElement>) => void;
+  onReferenceChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onNewRateAmountChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onNewRateFromChange: (e: ChangeEvent<HTMLInputElement>) => void;
   onAddRate: () => void;

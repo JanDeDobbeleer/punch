@@ -8,10 +8,10 @@ import { entryEarnValue } from '../../../src/lib/earnings.js';
 import type { Entry, Project } from '../../../src/types.js';
 
 const project: Project = {
-  id: 'p1', name: 'Alpha', customerId: 'c1', budget: null,
+  id: 'p1', name: 'Alpha', customerId: 'c1', reference: 'SYSTEM:ROW-42', budget: null,
   rates: [{ id: 'r1', amount: 800, from: '2020-01-01', to: null }],
 };
-const closedProject: Project = { ...project, id: 'p2', name: 'Old', closed: true };
+const closedProject: Project = { ...project, id: 'p2', name: 'Old', reference: null, closed: true };
 
 function mkEntry(over: Partial<Entry>): Entry {
   return {
@@ -133,6 +133,117 @@ describe('mcp tools', () => {
     expect(r.text).toMatch(/Punch app/);
     expect((await call('delete_entry', { id: 'plain' })).isError).toBe(false);
     expect(state.main.map((e) => e.id)).toEqual(['a1']);
+  });
+
+  it('list_projects returns the complete DTO with set and unset references', async () => {
+    const { deps } = makeDeps();
+    const call = await connect(deps);
+
+    expect((await call('list_projects')).json()).toEqual([{
+      id: 'p1',
+      name: 'Alpha',
+      reference: 'SYSTEM:ROW-42',
+      customerId: 'c1',
+      customerName: 'Acme',
+      dayRate: 800,
+      budget: null,
+      spentThisYear: 0,
+      closed: false,
+    }]);
+    expect((await call('list_projects', { includeClosed: true })).json()).toEqual([
+      {
+        id: 'p1',
+        name: 'Alpha',
+        reference: 'SYSTEM:ROW-42',
+        customerId: 'c1',
+        customerName: 'Acme',
+        dayRate: 800,
+        budget: null,
+        spentThisYear: 0,
+        closed: false,
+      },
+      {
+        id: 'p2',
+        name: 'Old',
+        reference: null,
+        customerId: 'c1',
+        customerName: 'Acme',
+        dayRate: 800,
+        budget: null,
+        spentThisYear: 0,
+        closed: true,
+      },
+    ]);
+  });
+
+  it('list_entries returns the complete DTO with set, unset, and projectless references', async () => {
+    const entries = [
+      mkEntry({ comment: 'Project work' }),
+      mkEntry({
+        id: 'h1', date: '2026-03-03', kind: 'holiday', projectId: null,
+        minutes: 480, comment: 'Holiday',
+      }),
+      mkEntry({
+        id: 'e2', date: '2026-03-04', projectId: 'p2',
+        minutes: 60, comment: 'Old project work',
+      }),
+    ];
+    const { deps } = makeDeps({ main: entries });
+    const call = await connect(deps);
+
+    expect((await call('list_entries', { from: '2026-03-01', to: '2026-03-31' })).json()).toEqual([
+      {
+        id: 'e1',
+        date: '2026-03-02',
+        kind: 'project',
+        projectId: 'p1',
+        projectName: 'Alpha',
+        projectReference: 'SYSTEM:ROW-42',
+        serviceId: null,
+        serviceName: null,
+        customerId: 'c1',
+        customerName: 'Acme',
+        hours: 4,
+        amount: null,
+        comment: 'Project work',
+        earned: 400,
+        attachmentCount: 0,
+      },
+      {
+        id: 'h1',
+        date: '2026-03-03',
+        kind: 'holiday',
+        projectId: null,
+        projectName: null,
+        projectReference: null,
+        serviceId: null,
+        serviceName: null,
+        customerId: null,
+        customerName: null,
+        hours: 8,
+        amount: null,
+        comment: 'Holiday',
+        earned: 0,
+        attachmentCount: 0,
+      },
+      {
+        id: 'e2',
+        date: '2026-03-04',
+        kind: 'project',
+        projectId: 'p2',
+        projectName: 'Old',
+        projectReference: null,
+        serviceId: null,
+        serviceName: null,
+        customerId: 'c1',
+        customerName: 'Acme',
+        hours: 1,
+        amount: null,
+        comment: 'Old project work',
+        earned: 100,
+        attachmentCount: 0,
+      },
+    ]);
   });
 
   it('earned for a project entry equals entryEarnValue', async () => {

@@ -198,8 +198,10 @@ directly). Then run
 
 | Tool | Effect |
 |------|--------|
-| `list_customers`, `list_projects`, `list_services` | Read |
-| `list_entries(from, to, …filters)` | Read. Includes past-year blobs |
+| `list_customers`, `list_projects`, `list_services` | Read only. `list_projects` includes `reference`, the external-system row identifier (for example an AFAS project/item), or `null` when unset |
+| `list_entries(from, to, …filters)` | Read. Includes past-year blobs and `projectReference`, the linked project's current external-system row identifier, or `null` when unset or not applicable |
 | `get_earnings(from, to, groupBy)` | Read. Uses `entryEarnValue()` from `src/lib/earnings.ts` |
 | `log_entry`, `update_entry` | Write through ETag / If-Match, retried once on 412 |
 | `delete_entry` | Write. Refused when the entry has attachments; delete those in the app |
+
+Customer, project, and service catalog operations are read-only through MCP; project creation and updates remain app-only.

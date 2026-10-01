@@ -5,6 +5,7 @@ const DEV_MODE = import.meta.env.DEV;
 import { addDays, addMonths, fmtFullDate, fmtMonthYear, fmtShortDateYear, iso, isoWeekNumber, parseISO, startOfWeek } from '../lib/dates';
 import { fmtEUR, fmtH, fmtDays, fmtBytes, hexToRgba, hoursToMinutes, minutesToHours, uid } from '../lib/format';
 import { addRatePeriod, currentRatePeriod, hasOverlap, rateForDate, sortRates } from '../lib/rates';
+import { validateProjectReference } from '../lib/projectReference';
 import * as store from '../lib/store';
 import type {
   AppHeaderProps,
@@ -474,6 +475,7 @@ export function useAppState(settings: AppSettings): AppViewModel {
           id: project.id,
           name: project.name,
           customerId: project.customerId,
+          reference: project.reference ?? '',
           rates: project.rates,
           newRateAmount: String(currentRatePeriod(project.rates)?.amount ?? ''),
           newRateFrom: iso(new Date()),
@@ -484,6 +486,7 @@ export function useAppState(settings: AppSettings): AppViewModel {
           id: null,
           name: '',
           customerId: presetCustomerId || customers[0]?.id || '',
+          reference: '',
           rates: [{ id: uid(), amount: 600, from: iso(new Date()), to: null }],
           newRateAmount: '600',
           newRateFrom: iso(new Date()),
@@ -605,7 +608,7 @@ export function useAppState(settings: AppSettings): AppViewModel {
     });
   }, []);
 
-  const updateProjectDraft = useCallback((key: 'name' | 'customerId' | 'newRateAmount' | 'newRateFrom' | 'budget', value: string) => {
+  const updateProjectDraft = useCallback((key: 'name' | 'customerId' | 'reference' | 'newRateAmount' | 'newRateFrom' | 'budget', value: string) => {
     setState((current) => {
       if (!current.projectDraft) {
         return current;
@@ -688,6 +691,11 @@ export function useAppState(settings: AppSettings): AppViewModel {
       return;
     }
 
+    const referenceValidation = validateProjectReference(draft.reference, stateRef.current.projects, draft.id);
+    if (referenceValidation.error) {
+      return;
+    }
+
     const rates = sortRates(draft.rates);
     const parsedBudget = Number.parseFloat(draft.budget);
     const budget = Number.isFinite(parsedBudget) && parsedBudget > 0 ? parsedBudget : null;
@@ -698,6 +706,7 @@ export function useAppState(settings: AppSettings): AppViewModel {
         name: draft.name.trim(),
         customerId: draft.customerId,
         rates,
+        reference: referenceValidation.value,
         budget,
         closed: draft.closed || false,
       };
@@ -708,7 +717,7 @@ export function useAppState(settings: AppSettings): AppViewModel {
           ? current.projects.map((project) => (project.id === draft.id ? savedProject : project))
           : [...current.projects, savedProject],
         selectedProjectId: id,
-        projectDraft: { ...draft, id, rates },
+        projectDraft: { ...draft, id, rates, reference: referenceValidation.value ?? '' },
       };
     });
   }, []);
@@ -2446,6 +2455,7 @@ export function useAppState(settings: AppSettings): AppViewModel {
     const hasBudget = !isNew && Number.isFinite(budgetAmount) && budgetAmount > 0;
     const budgetPct = hasBudget ? Math.round((earn / budgetAmount) * 100) : null;
     const budgetSpentLabel = hasBudget ? `${fmtEUR(earn)} of ${fmtEUR(budgetAmount)} spent` : '';
+    const referenceError = validateProjectReference(draft.reference, ctx.S.projects, draft.id).error;
 
     const entryRows: EntryDetailRowVM[] = [...entries]
       .sort((a, b) => b.date.localeCompare(a.date))
@@ -2488,6 +2498,8 @@ export function useAppState(settings: AppSettings): AppViewModel {
       saveLabel: isNew ? 'Create project' : 'Save changes',
       projectName: draft.name,
       customerId: draft.customerId,
+      reference: draft.reference,
+      referenceError,
       hours: fmtH(minutes),
       earn: fmtEUR(earn),
       canDelete: !isNew,
@@ -2513,6 +2525,7 @@ export function useAppState(settings: AppSettings): AppViewModel {
       },
       onNameChange: (event: ChangeEvent<HTMLInputElement>) => updateProjectDraft('name', event.target.value),
       onCustomerChange: (event: ChangeEvent<HTMLSelectElement>) => updateProjectDraft('customerId', event.target.value),
+      onReferenceChange: (event: ChangeEvent<HTMLInputElement>) => updateProjectDraft('reference', event.target.value),
       onNewRateAmountChange: (event: ChangeEvent<HTMLInputElement>) => updateProjectDraft('newRateAmount', event.target.value),
       onNewRateFromChange: (event: ChangeEvent<HTMLInputElement>) => updateProjectDraft('newRateFrom', event.target.value),
       onAddRate: addRate,

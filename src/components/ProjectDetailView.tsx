@@ -7,6 +7,8 @@ const ProjectDetailView: FC<ProjectDetailViewProps> = ({
   saveLabel,
   projectName,
   customerId,
+  reference,
+  referenceError,
   hours,
   earn,
   canDelete,
@@ -21,6 +23,7 @@ const ProjectDetailView: FC<ProjectDetailViewProps> = ({
   btnPrimaryLg,
   onNameChange,
   onCustomerChange,
+  onReferenceChange,
   onNewRateAmountChange,
   onNewRateFromChange,
   onAddRate,
@@ -121,6 +124,32 @@ const ProjectDetailView: FC<ProjectDetailViewProps> = ({
                 onChange={onBudgetChange}
               />
             </div>
+          </div>
+
+          <div>
+            <label style={labelStyle} htmlFor="project-reference">Reference (optional)</label>
+            <input
+              id="project-reference"
+              type="text"
+              style={{
+                ...inputStyle,
+                borderColor: referenceError ? '#dc2626' : inputStyle.borderColor,
+              }}
+              placeholder="AFAS:13021/100"
+              maxLength={100}
+              value={reference}
+              onChange={onReferenceChange}
+              aria-invalid={Boolean(referenceError)}
+              aria-describedby="project-reference-help project-reference-error"
+            />
+            <div id="project-reference-help" style={{ marginTop: '6px', fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+              Use &lt;SYSTEM&gt;:&lt;value&gt;. For AFAS, enter the project and item as AFAS:&lt;project&gt;/&lt;item&gt;.
+            </div>
+            {referenceError && (
+              <div id="project-reference-error" role="alert" style={{ marginTop: '5px', fontSize: '12px', color: '#dc2626' }}>
+                {referenceError}
+              </div>
+            )}
           </div>
 
           {!isNew && (

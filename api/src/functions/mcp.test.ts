@@ -130,6 +130,7 @@ describe('/api/mcp', () => {
     expect(list.status).toBe(200);
     const names = JSON.parse(String(list.body)).result.tools.map((t: { name: string }) => t.name);
     expect(names).toEqual(expect.arrayContaining(['list_customers', 'log_entry', 'get_earnings', 'delete_entry']));
+    expect(names).not.toContain('update_project');
 
     const call = await mcp()(rpc({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'list_customers', arguments: {} } }, token), ctx);
     expect(call.status).toBe(200);

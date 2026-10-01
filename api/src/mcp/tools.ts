@@ -306,7 +306,7 @@ function checkBudget(project: Project, entry: Entry, others: Entry[], hpd: numbe
   }
 }
 
-function describe(e: Entry, cat: Catalog, hpd: number) {
+function describe(e: Entry, cat: Catalog, hpd: number, includeProjectReference = false) {
   const project = e.projectId ? cat.projById[e.projectId] : undefined;
   const service = e.serviceId ? cat.serviceById[e.serviceId] : undefined;
   const customerId = e.kind === 'project' ? project?.customerId : e.customerId;
@@ -316,6 +316,7 @@ function describe(e: Entry, cat: Catalog, hpd: number) {
     kind: e.kind,
     projectId: e.projectId,
     projectName: project?.name ?? null,
+    ...(includeProjectReference ? { projectReference: project?.reference ?? null } : {}),
     serviceId: e.serviceId,
     serviceName: service?.name ?? null,
     customerId: customerId ?? null,
@@ -344,7 +345,7 @@ export function registerTools(server: McpServer, deps: McpDeps = defaultDeps): v
 
   server.registerTool('list_projects', {
     title: 'List projects',
-    description: 'List projects with customer, current day rate (EUR/day), optional budget and amount spent this year, and whether the project is closed. Closed means manually closed or budget reached; no entries can be logged on closed projects. Closed projects are hidden unless includeClosed is true.',
+    description: 'List projects with customer, external-system reference (for example an AFAS project/item row identifier), current day rate (EUR/day), optional budget and amount spent this year, and whether the project is closed. Closed means manually closed or budget reached; no entries can be logged on closed projects. Closed projects are hidden unless includeClosed is true.',
     inputSchema: { includeClosed: z.boolean().optional().describe('Include closed projects (default false).') },
     annotations: RO,
   }, async ({ includeClosed }) => {
@@ -361,6 +362,7 @@ export function registerTools(server: McpServer, deps: McpDeps = defaultDeps): v
       return {
         id: p.id,
         name: p.name,
+        reference: p.reference ?? null,
         customerId: p.customerId,
         customerName: cat.custById[p.customerId]?.name ?? null,
         dayRate: currentRatePeriod(p.rates)?.amount ?? 0,
@@ -388,7 +390,7 @@ export function registerTools(server: McpServer, deps: McpDeps = defaultDeps): v
 
   server.registerTool('list_entries', {
     title: 'List time entries',
-    description: 'List time entries in an inclusive date range (max 366 days), optionally filtered by customer, project or service. Each entry has hours, earned amount (EUR), comment and attachment count. Covers past years too.',
+    description: 'List time entries in an inclusive date range (max 366 days), optionally filtered by customer, project or service. Each entry has hours, earned amount (EUR), comment, attachment count, and the linked project\'s current external-system reference (for example an AFAS project/item row identifier), or null when not applicable. Covers past years too.',
     inputSchema: {
       ...rangeShape,
       customerId: z.string().optional(),
@@ -405,7 +407,7 @@ export function registerTools(server: McpServer, deps: McpDeps = defaultDeps): v
       fromISO: from, toISO: to, customerId: customerId ?? null, projectId: projectId ?? null,
     }).filter((e) => !serviceId || (e.kind === 'service' && e.serviceId === serviceId));
     filtered.sort((a, b) => a.date.localeCompare(b.date));
-    return ok(filtered.map((e) => describe(e, catalog, hpd)));
+    return ok(filtered.map((e) => describe(e, catalog, hpd, true)));
   });
 
   server.registerTool('get_earnings', {
